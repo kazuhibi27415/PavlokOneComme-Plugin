@@ -1,0 +1,7 @@
+logs/
+dist/
+*.zip
+debug/
+test/.tmp/
+.DS_Store
+Thumbs.db

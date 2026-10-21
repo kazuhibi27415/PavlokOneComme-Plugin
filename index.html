@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pavlok Super Chat Controller</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div>
+        <h1>Pavlok Super Chat Controller <small>v1.0.0</small></h1>
+        <p>わんコメが取得したYouTube Super Chatを、金額完全一致でPavlokのZapへ送ります。</p>
+      </div>
+      <span id="monitor-badge" class="badge stopped">停止中</span>
+    </header>
+
+    <section class="panel">
+      <h2>共通設定</h2>
+      <div class="grid">
+        <label class="wide">Pavlok初期トークン
+          <input id="pavlok-token" class="setting-input" type="password" autocomplete="off" placeholder="保存済みの場合は空欄のままでOK">
+        </label>
+        <label class="check"><input id="pavlok-enabled" class="setting-input" type="checkbox"> 実機へZapを送信</label>
+        <label class="check"><input id="ignore-initial" class="setting-input" type="checkbox"> 開始前のSuper Chatを既読扱いにする</label>
+        <label>検出後の待機秒数
+          <input id="delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
+        </label>
+        <label>共通クールダウン秒数
+          <input id="cooldown-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
+        </label>
+      </div>
+      <p id="token-state" class="hint"></p>
+      <label class="check danger"><input id="clear-token" class="setting-input" type="checkbox"> 保存済みトークンを削除</label>
+    </section>
+
+    <section class="panel">
+      <h2>金額グループ</h2>
+      <p class="hint">使わないグループはOFFにします。対象金額は整数円をカンマで区切り、別グループと重複させないでください。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>使用</th><th>対象金額（円）</th><th>出力方法</th><th>固定値</th><th>ランダム下限</th><th>ランダム上限</th></tr></thead>
+          <tbody id="group-rows"></tbody>
+        </table>
+      </div>
+      <p class="hint">固定・ランダムは全グループで選択できます。出力は1～100です。</p>
+    </section>
+
+    <section class="panel">
+      <h2>手動Zapテスト</h2>
+      <p class="hint">監視停止中に、指定した出力でZapを1回だけ試します。実機送信がOFFならDRY-RUNとしてログだけを表示します。</p>
+      <div class="manual-row">
+        <label>出力値（1～100）
+          <input id="manual-output" class="manual-control" type="number" min="1" max="100" step="1" value="20">
+        </label>
+        <button id="manual-button" class="manual-control" type="button">手動実行</button>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="save-button" type="button">設定を保存</button>
+      <button id="start-button" class="primary" type="button">監視開始</button>
+      <button id="stop-button" class="stop" type="button" disabled>監視停止</button>
+      <span id="queue-state">予約 0件</span>
+    </section>
+    <p class="warning">監視停止時は未処理予約を破棄します。送信済みのZapは取り消せません。</p>
+    <p id="message" role="status"></p>
+
+    <section class="panel">
+      <h2>監視ログ</h2>
+      <pre id="logs" tabindex="0"></pre>
+    </section>
+
+    <footer>
+      このプラグインは「わんコメ」を使用します。<a href="https://onecomme.com" target="_blank" rel="noopener">https://onecomme.com</a>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
