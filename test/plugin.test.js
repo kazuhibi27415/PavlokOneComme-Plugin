@@ -175,7 +175,7 @@ test('Pavlok OneComme plugin', async t => {
     }
     const manual = await plugin.request({ method: 'POST', body: { action: 'manual', output: 37 } })
     assert.equal(manual.code, 200)
-    assert(plugin.logs.some(line => line.includes('[DRY-RUN] #MANUAL zap output=37')))
+    assert(plugin.logs.some(line => line.includes('[DRY-RUN] #MANUAL 電撃 output=37')))
     assert.equal(fetchCount, 0)
     await start()
     const blocked = await plugin.request({ method: 'POST', body: { action: 'manual', output: 37 } })
@@ -193,7 +193,7 @@ test('Pavlok OneComme plugin', async t => {
     }
   })
 
-  await t.test('401ではtokenだけ更新し失敗したZapを再送しない', async () => {
+  await t.test('401ではtokenだけ更新し失敗した電撃を再送しない', async () => {
     initialize()
     const calls = []
     let userTokenNumber = 0
@@ -212,24 +212,24 @@ test('Pavlok OneComme plugin', async t => {
     await start()
     plugin.subscribe('comments', [comment('unauthorized')])
     await waitUntil(() => plugin.logs.some(line => line.includes('token更新済み')))
-    const zapCalls = calls.filter(call => call.url.includes('/stimulus/send'))
+    const stimulusCalls = calls.filter(call => call.url.includes('/stimulus/send'))
     const userCalls = calls.filter(call => call.url.includes('/api/v5/user/'))
-    assert.equal(zapCalls.length, 1)
+    assert.equal(stimulusCalls.length, 1)
     assert.equal(userCalls.length, 2)
-    assert.equal(zapCalls[0].options.headers.Authorization, 'Bearer runtime-1')
+    assert.equal(stimulusCalls[0].options.headers.Authorization, 'Bearer runtime-1')
     assert.equal(plugin.runtimeToken, 'runtime-2')
     stop()
   })
 
-  await t.test('手動ZapのHTTP失敗を画面へ返して再送しない', async () => {
+  await t.test('手動電撃のHTTP失敗を画面へ返して再送しない', async () => {
     initialize()
-    let zapCount = 0
+    let stimulusCount = 0
     plugin.loadInitialToken = () => 'initial-token'
     global.fetch = async url => {
       if (url.includes('/api/v5/user/')) {
         return { status: 200, json: async () => ({ user: { token: 'runtime-token' } }) }
       }
-      zapCount += 1
+      stimulusCount += 1
       return { status: 500, json: async () => ({}) }
     }
     const enabled = settings({ pavlokEnabled: true })
@@ -238,7 +238,7 @@ test('Pavlok OneComme plugin', async t => {
     const result = await plugin.request({ method: 'POST', body: { action: 'manual', output: 25 } })
     assert.equal(result.code, 400)
     assert.match(result.response.error, /HTTP 500/)
-    assert.equal(zapCount, 1)
+    assert.equal(stimulusCount, 1)
   })
 
   await t.test('有効グループ間の重複金額を保存しない', async () => {

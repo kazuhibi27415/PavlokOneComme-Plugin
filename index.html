@@ -10,8 +10,8 @@
   <main class="container">
     <header>
       <div>
-        <h1>Pavlok Super Chat Controller <small>v1.0.0</small></h1>
-        <p>わんコメが取得したYouTube Super Chatを、金額完全一致でPavlokのZapへ送ります。</p>
+        <h1>Pavlok Super Chat Controller <small>v1.0.1</small></h1>
+        <p>わんコメが取得したYouTube Super Chatを、金額完全一致でPavlokの電撃へ送ります。</p>
       </div>
       <span id="monitor-badge" class="badge stopped">停止中</span>
     </header>
@@ -22,7 +22,7 @@
         <label class="wide">Pavlok初期トークン
           <input id="pavlok-token" class="setting-input" type="password" autocomplete="off" placeholder="保存済みの場合は空欄のままでOK">
         </label>
-        <label class="check"><input id="pavlok-enabled" class="setting-input" type="checkbox"> 実機へZapを送信</label>
+        <label class="check"><input id="pavlok-enabled" class="setting-input" type="checkbox"> 実機へ電撃を送信</label>
         <label class="check"><input id="ignore-initial" class="setting-input" type="checkbox"> 開始前のSuper Chatを既読扱いにする</label>
         <label>検出後の待機秒数
           <input id="delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
@@ -48,8 +48,8 @@
     </section>
 
     <section class="panel">
-      <h2>手動Zapテスト</h2>
-      <p class="hint">監視停止中に、指定した出力でZapを1回だけ試します。実機送信がOFFならDRY-RUNとしてログだけを表示します。</p>
+      <h2>手動電撃テスト</h2>
+      <p class="hint">監視停止中に、指定した出力で電撃を1回だけ試します。実機送信がOFFならDRY-RUNとしてログだけを表示します。</p>
       <div class="manual-row">
         <label>出力値（1～100）
           <input id="manual-output" class="manual-control" type="number" min="1" max="100" step="1" value="20">
@@ -64,7 +64,7 @@
       <button id="stop-button" class="stop" type="button" disabled>監視停止</button>
       <span id="queue-state">予約 0件</span>
     </section>
-    <p class="warning">監視停止時は未処理予約を破棄します。送信済みのZapは取り消せません。</p>
+    <p class="warning">監視停止時は未処理予約を破棄します。送信済みの電撃は取り消せません。</p>
     <p id="message" role="status"></p>
 
     <section class="panel">

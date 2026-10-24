@@ -167,7 +167,7 @@ async function runManual() {
     await saveSettings(false)
     const state = await api('POST', { action: 'manual', output })
     renderRuntime(state)
-    showMessage(state.settings.pavlokEnabled ? `出力${output}でZapを手動実行しました。` : `出力${output}のDRY-RUNを実行しました。`)
+    showMessage(state.settings.pavlokEnabled ? `出力${output}で電撃を手動実行しました。` : `出力${output}のDRY-RUNを実行しました。`)
   } catch (error) {
     showMessage(error.message, 'error')
   } finally {

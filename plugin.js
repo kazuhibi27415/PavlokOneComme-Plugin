@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.0.0'
+const VERSION = '1.0.1'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -123,7 +123,7 @@ const plugin = {
   name: 'Pavlok Super Chat Controller',
   uid: UID,
   version: VERSION,
-  author: 'kaz-project',
+  author: 'kaz',
   url: `http://localhost:11180/plugins/${UID}/index.html`,
   permissions: ['comments'],
   defaultState: {
@@ -309,10 +309,10 @@ const plugin = {
         this.record('INFO', `[OUTPUT] #${job.number} ${job.group.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
         this.lastAttemptAt = Date.now()
         if (!this.settings.pavlokEnabled) {
-          this.record('INFO', `[DRY-RUN] #${job.number} zap output=${output}（Pavlokには送信していません）`)
+          this.record('INFO', `[DRY-RUN] #${job.number} 電撃 output=${output}（Pavlokには送信していません）`)
           continue
         }
-        await this.sendZap(job, output)
+        await this.sendStimulus(job, output)
       }
     } finally {
       this.processing = false
@@ -379,8 +379,8 @@ const plugin = {
     return true
   },
 
-  async sendZap(job, output) {
-    this.record('INFO', `[PAVLOK] #${job.number} zap output=${output} 送信`)
+  async sendStimulus(job, output) {
+    this.record('INFO', `[PAVLOK] #${job.number} 電撃 output=${output} 送信`)
     let response
     try {
       response = await this.fetchWithTimeout(PAVLOK_STIMULUS_URL, {
@@ -440,22 +440,22 @@ const plugin = {
     this.record('INFO', `[STOP] 監視停止 / 未処理予約 ${discarded} 件を破棄しました。`)
   },
 
-  async runManualZap(value) {
+  async runManualStimulus(value) {
     if (this.monitoring) throw new Error('手動実行するには先に監視を停止してください。')
     if (this.manualRunning) throw new Error('手動実行中です。完了までお待ちください。')
     const output = outputNumber(value, '手動実行の出力値')
     this.manualRunning = true
     try {
-      this.record('INFO', `[MANUAL] zap output=${output} 手動実行`)
+      this.record('INFO', `[MANUAL] 電撃 output=${output} 手動実行`)
       if (!this.settings.pavlokEnabled) {
-        this.record('INFO', `[DRY-RUN] #MANUAL zap output=${output}（Pavlokには送信していません）`)
+        this.record('INFO', `[DRY-RUN] #MANUAL 電撃 output=${output}（Pavlokには送信していません）`)
         return
       }
       await this.refreshRuntimeToken()
-      const result = await this.sendZap({ number: 'MANUAL' }, output)
+      const result = await this.sendStimulus({ number: 'MANUAL' }, output)
       if (!result.ok) {
         const detail = result.status == null ? '通信失敗' : `HTTP ${result.status}`
-        throw new Error(`手動Zap送信に失敗しました (${detail})。同じZapは再送していません。`)
+        throw new Error(`手動電撃送信に失敗しました (${detail})。同じ電撃は再送していません。`)
       }
     } finally {
       this.manualRunning = false
@@ -502,7 +502,7 @@ const plugin = {
         return { code: 200, response: this.publicState() }
       }
       if (req.method === 'POST' && body.action === 'manual') {
-        await this.runManualZap(body.output)
+        await this.runManualStimulus(body.output)
         return { code: 200, response: this.publicState() }
       }
       return { code: 405, response: { error: '対応していない操作です。' } }
