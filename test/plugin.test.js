@@ -38,14 +38,20 @@ function settings(overrides = {}) {
     wordPartyEnabled: false,
     delaySeconds: 0,
     hitDelaySeconds: 0,
+    hit2DelaySeconds: 0,
     bonusFirstDelaySeconds: 0,
     bonusSecondDelaySeconds: 0,
     wordPartyHitDurationSeconds: 0,
+    wordPartyHit2DurationSeconds: 0,
     wordPartyBonusDurationSeconds: 0,
     wordPartyMiss1DurationSeconds: 0,
     wordPartyMiss2DurationSeconds: 0,
     wordPartyMiss3DurationSeconds: 0,
     wordPartyMiss4DurationSeconds: 0,
+    wordPartyMiss5DurationSeconds: 0,
+    wordPartyMiss6DurationSeconds: 0,
+    wordPartyMiss7DurationSeconds: 0,
+    wordPartyMiss8DurationSeconds: 0,
     targetAmount: 500,
     outputMode: 'fixed',
     fixedOutput: 20,
@@ -129,26 +135,47 @@ test('Pavlok OneComme plugin', async t => {
     assert.deepEqual(plugin.defaultState.settings, {
       pavlokEnabled: false,
       wordPartyEnabled: false,
+      slotHit2Enabled: false,
+      slotMiss5Enabled: false,
+      slotMiss6Enabled: false,
+      slotMiss7Enabled: false,
+      slotMiss8Enabled: false,
       wordPartyHitId: '',
+      wordPartyHit2Id: '',
       wordPartyBonusId: '',
       wordPartyMiss1Id: '',
       wordPartyMiss2Id: '',
       wordPartyMiss3Id: '',
       wordPartyMiss4Id: '',
+      wordPartyMiss5Id: '',
+      wordPartyMiss6Id: '',
+      wordPartyMiss7Id: '',
+      wordPartyMiss8Id: '',
       slotHitName: 'ビリビリタイム',
+      slotHit2Name: 'ビリビリタイム2',
       slotBonusName: 'スーパービリビリタイム',
       slotMiss1Name: 'ハズレ～',
       slotMiss2Name: '残念でした',
       slotMiss3Name: 'あたりませーん',
       slotMiss4Name: 'ビリビリするなんてさいあく',
+      slotMiss5Name: 'はずれ5',
+      slotMiss6Name: 'はずれ6',
+      slotMiss7Name: 'はずれ7',
+      slotMiss8Name: 'はずれ8',
       wordPartyHitDurationSeconds: 7,
+      wordPartyHit2DurationSeconds: 7,
       wordPartyBonusDurationSeconds: 11,
       wordPartyMiss1DurationSeconds: 9,
       wordPartyMiss2DurationSeconds: 8,
       wordPartyMiss3DurationSeconds: 7,
       wordPartyMiss4DurationSeconds: 6,
+      wordPartyMiss5DurationSeconds: 5,
+      wordPartyMiss6DurationSeconds: 4,
+      wordPartyMiss7DurationSeconds: 3,
+      wordPartyMiss8DurationSeconds: 2,
       delaySeconds: 1,
       hitDelaySeconds: 5,
+      hit2DelaySeconds: 5,
       bonusFirstDelaySeconds: 7,
       bonusSecondDelaySeconds: 2,
       ignoreInitialHistory: true,
@@ -222,27 +249,80 @@ test('Pavlok OneComme plugin', async t => {
         'ビリビリするなんてさいあく'
       ])
       assert.deepEqual(results.map(result => result.stimulusCount), [1, 2, 0, 0, 0, 0])
+      assert(results.every(result => result.totalSlots === 6))
     } finally {
       Math.random = originalRandom
     }
   })
 
-  await t.test('6枠の名前を個別に変更できる', async () => {
+  await t.test('追加枠をONにするとあたり2枠・確変1枠・はずれ8枠の11枠均等になる', async () => {
     initialize()
-    const names = ['大当たり', '連続電撃', 'セーフA', 'セーフB', 'セーフC', 'セーフD']
     await save(settings({
+      slotHit2Enabled: true,
+      slotMiss5Enabled: true,
+      slotMiss6Enabled: true,
+      slotMiss7Enabled: true,
+      slotMiss8Enabled: true
+    }))
+    const originalRandom = Math.random
+    try {
+      const results = []
+      for (let index = 0; index < 11; index += 1) {
+        Math.random = () => (index + 0.5) / 11
+        results.push(originalDrawLottery.call(plugin))
+      }
+      assert.deepEqual(results.map(result => result.slot), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+      assert.deepEqual(results.map(result => result.stimulusCount), [1, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0])
+      assert(results.every(result => result.totalSlots === 11))
+    } finally {
+      Math.random = originalRandom
+    }
+  })
+
+  await t.test('追加カードごとのチェックがONの枠だけを重み1で抽選する', async () => {
+    initialize()
+    await save(settings({ slotHit2Enabled: true, slotMiss8Enabled: true }))
+    const originalRandom = Math.random
+    try {
+      const results = []
+      for (let index = 0; index < 8; index += 1) {
+        Math.random = () => (index + 0.5) / 8
+        results.push(originalDrawLottery.call(plugin))
+      }
+      assert.deepEqual(results.map(result => result.slot), [1, 2, 3, 4, 5, 6, 7, 11])
+      assert.deepEqual(results.map(result => result.position), [1, 2, 3, 4, 5, 6, 7, 8])
+      assert(results.every(result => result.totalSlots === 8))
+    } finally {
+      Math.random = originalRandom
+    }
+  })
+
+  await t.test('11枠の名前を個別に変更できる', async () => {
+    initialize()
+    const names = ['大当たり', '連続電撃', 'セーフA', 'セーフB', 'セーフC', 'セーフD', '追加当たり', 'セーフE', 'セーフF', 'セーフG', 'セーフH']
+    await save(settings({
+      slotHit2Enabled: true,
+      slotMiss5Enabled: true,
+      slotMiss6Enabled: true,
+      slotMiss7Enabled: true,
+      slotMiss8Enabled: true,
       slotHitName: names[0],
       slotBonusName: names[1],
       slotMiss1Name: names[2],
       slotMiss2Name: names[3],
       slotMiss3Name: names[4],
-      slotMiss4Name: names[5]
+      slotMiss4Name: names[5],
+      slotHit2Name: names[6],
+      slotMiss5Name: names[7],
+      slotMiss6Name: names[8],
+      slotMiss7Name: names[9],
+      slotMiss8Name: names[10]
     }))
     const originalRandom = Math.random
     try {
       const results = []
-      for (let index = 0; index < 6; index += 1) {
-        Math.random = () => (index + 0.5) / 6
+      for (let index = 0; index < 11; index += 1) {
+        Math.random = () => (index + 0.5) / 11
         results.push(originalDrawLottery.call(plugin))
       }
       assert.deepEqual(results.map(result => result.name), names)
@@ -332,6 +412,55 @@ test('Pavlok OneComme plugin', async t => {
     ])
     assert(calls.every(call => call.options.method === 'POST'))
     assert.equal(plugin.logs.filter(line => line.includes('[WORDPARTY]') && line.includes('演出実行')).length, 6)
+    stop()
+  })
+
+  await t.test('追加枠ONでは11枠それぞれのWordParty演出を1回実行する', async () => {
+    initialize()
+    const calls = []
+    global.fetch = async (url, options) => {
+      calls.push({ url, options })
+      return { status: 204 }
+    }
+    await save(settings({
+      slotHit2Enabled: true,
+      slotMiss5Enabled: true,
+      slotMiss6Enabled: true,
+      slotMiss7Enabled: true,
+      slotMiss8Enabled: true,
+      wordPartyEnabled: true,
+      wordPartyHitId: 'HIT00001',
+      wordPartyBonusId: 'BONUS001',
+      wordPartyMiss1Id: 'MISS0001',
+      wordPartyMiss2Id: 'MISS0002',
+      wordPartyMiss3Id: 'MISS0003',
+      wordPartyMiss4Id: 'MISS0004',
+      wordPartyHit2Id: 'HIT00002',
+      wordPartyMiss5Id: 'MISS0005',
+      wordPartyMiss6Id: 'MISS0006',
+      wordPartyMiss7Id: 'MISS0007',
+      wordPartyMiss8Id: 'MISS0008'
+    }))
+    let slot = 1
+    plugin.drawLottery = () => plugin.lotteryForSlot(slot++)
+    await start()
+    plugin.subscribe('comments', Array.from({ length: 11 }, (_, index) => comment(`wordparty-11-${index + 1}`)))
+    await waitUntil(() => plugin.queue.length === 0 && !plugin.processing, 3000)
+    assert.equal(calls.length, 11)
+    assert.deepEqual(calls.map(call => call.url), [
+      'http://localhost:11180/api/wordparty/HIT00001',
+      'http://localhost:11180/api/wordparty/BONUS001',
+      'http://localhost:11180/api/wordparty/MISS0001',
+      'http://localhost:11180/api/wordparty/MISS0002',
+      'http://localhost:11180/api/wordparty/MISS0003',
+      'http://localhost:11180/api/wordparty/MISS0004',
+      'http://localhost:11180/api/wordparty/HIT00002',
+      'http://localhost:11180/api/wordparty/MISS0005',
+      'http://localhost:11180/api/wordparty/MISS0006',
+      'http://localhost:11180/api/wordparty/MISS0007',
+      'http://localhost:11180/api/wordparty/MISS0008'
+    ])
+    assert(calls.every(call => call.options.method === 'POST'))
     stop()
   })
 
@@ -447,6 +576,15 @@ test('Pavlok OneComme plugin', async t => {
     assert.equal(plugin.logs.filter(line => line.includes('[DRY-RUN] #MANUAL')).length, 1)
   })
 
+  await t.test('チェックOFFの追加カードも手動実行で事前確認できる', async () => {
+    initialize()
+    await save(settings({ slotMiss8Name: '追加はずれ確認' }))
+    const result = await plugin.request({ method: 'POST', body: { action: 'manual-slot', slot: 11 } })
+    assert.equal(result.code, 200)
+    assert(plugin.logs.some(line => line.includes('[MANUAL]') && line.includes('追加はずれ確認')))
+    assert(plugin.logs.some(line => line.includes('追加枠11（抽選OFF）')))
+  })
+
   await t.test('WordPartyのHTTP失敗でもPavlokの電撃を止めず再実行しない', async () => {
     initialize()
     let wordPartyCount = 0
@@ -510,6 +648,38 @@ test('Pavlok OneComme plugin', async t => {
     await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 1)
     assert.notEqual(wordPartyCalledAt, null)
     assert(Date.now() - wordPartyCalledAt >= 65, 'あたりの電撃が設定した待機時間より前に実行されました。')
+    stop()
+  })
+
+  await t.test('追加あたりは個別の待機秒数を使って電撃を1回実行する', async () => {
+    initialize()
+    let wordPartyCalledAt = null
+    global.fetch = async url => {
+      if (url.includes('/api/wordparty/')) {
+        wordPartyCalledAt = Date.now()
+        return { status: 204 }
+      }
+      throw new Error('想定外のfetchです。')
+    }
+    await save(settings({
+      slotHit2Enabled: true,
+      wordPartyEnabled: true,
+      wordPartyHitId: 'HIT00001',
+      wordPartyHit2Id: 'HIT00002',
+      wordPartyBonusId: 'BONUS001',
+      wordPartyMiss1Id: 'MISS0001',
+      wordPartyMiss2Id: 'MISS0002',
+      wordPartyMiss3Id: 'MISS0003',
+      wordPartyMiss4Id: 'MISS0004',
+      hit2DelaySeconds: 0.08
+    }))
+    plugin.drawLottery = () => plugin.lotteryForSlot(7)
+    await start()
+    plugin.subscribe('comments', [comment('hit-2-wordparty-delay')])
+    await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 1)
+    assert.notEqual(wordPartyCalledAt, null)
+    assert(Date.now() - wordPartyCalledAt >= 65, '追加あたりの電撃が設定した待機時間より前に実行されました。')
+    assert(plugin.logs.some(line => line.includes('[LOTTERY]') && line.includes('7/7')))
     stop()
   })
 
@@ -705,6 +875,7 @@ test('Pavlok OneComme plugin', async t => {
     initialize()
     for (const [key, value] of [
       ['hitDelaySeconds', -0.1],
+      ['hit2DelaySeconds', 86400.1],
       ['bonusFirstDelaySeconds', 86400.1],
       ['bonusSecondDelaySeconds', 'abc']
     ]) {
@@ -714,15 +885,17 @@ test('Pavlok OneComme plugin', async t => {
     }
   })
 
-  await t.test('6枠のWordParty演出時間は0～86400秒だけを受け付ける', async () => {
+  await t.test('11枠のWordParty演出時間は0～86400秒だけを受け付ける', async () => {
     initialize()
     for (const [key, value, label] of [
       ['wordPartyHitDurationSeconds', -0.1, 'あたり'],
+      ['wordPartyHit2DurationSeconds', -0.1, '追加あたり'],
       ['wordPartyBonusDurationSeconds', 86400.1, '確変'],
       ['wordPartyMiss1DurationSeconds', 'abc', 'はずれ1'],
       ['wordPartyMiss2DurationSeconds', -1, 'はずれ2'],
       ['wordPartyMiss3DurationSeconds', Infinity, 'はずれ3'],
-      ['wordPartyMiss4DurationSeconds', 86401, 'はずれ4']
+      ['wordPartyMiss4DurationSeconds', 86401, 'はずれ4'],
+      ['wordPartyMiss8DurationSeconds', 86401, 'はずれ8']
     ]) {
       const result = await plugin.request({ method: 'PUT', body: { settings: settings({ [key]: value }) } })
       assert.equal(result.code, 400)
@@ -730,12 +903,14 @@ test('Pavlok OneComme plugin', async t => {
     }
   })
 
-  await t.test('6枠の名前は制御文字を含まない1～40文字だけを受け付ける', async () => {
+  await t.test('11枠の名前は制御文字を含まない1～40文字だけを受け付ける', async () => {
     initialize()
     for (const [key, value, label] of [
       ['slotHitName', '', 'あたり'],
+      ['slotHit2Name', '', '追加あたり'],
       ['slotBonusName', 'a'.repeat(41), '確変'],
-      ['slotMiss1Name', '改行\n不可', 'はずれ1']
+      ['slotMiss1Name', '改行\n不可', 'はずれ1'],
+      ['slotMiss8Name', 'a'.repeat(41), 'はずれ8']
     ]) {
       const result = await plugin.request({ method: 'PUT', body: { settings: settings({ [key]: value }) } })
       assert.equal(result.code, 400)
@@ -787,6 +962,53 @@ test('Pavlok OneComme plugin', async t => {
     assert.match(duplicate.response.error, /別々の演出ID/)
   })
 
+  await t.test('WordParty連携ONではチェックした追加カードだけ演出IDを必須にする', async () => {
+    initialize()
+    const common = {
+      wordPartyEnabled: true,
+      wordPartyHitId: 'HIT00001',
+      wordPartyBonusId: 'BONUS001',
+      wordPartyMiss1Id: 'MISS0001',
+      wordPartyMiss2Id: 'MISS0002',
+      wordPartyMiss3Id: 'MISS0003',
+      wordPartyMiss4Id: 'MISS0004'
+    }
+    const missing = await plugin.request({
+      method: 'PUT',
+      body: { settings: settings({ ...common, slotHit2Enabled: true, wordPartyHit2Id: '' }) }
+    })
+    assert.equal(missing.code, 400)
+    assert.match(missing.response.error, /追加あたり演出ID/)
+
+    const selected = await plugin.request({
+      method: 'PUT',
+      body: {
+        settings: settings({
+          ...common,
+          slotHit2Enabled: true,
+          slotMiss8Enabled: true,
+          wordPartyHit2Id: 'HIT00002',
+          wordPartyMiss8Id: 'MISS0008'
+        })
+      }
+    })
+    assert.equal(selected.code, 200, selected.response && selected.response.error)
+    assert.equal(selected.response.settings.wordPartyMiss5Id, '')
+
+    const duplicate = await plugin.request({
+      method: 'PUT',
+      body: {
+        settings: settings({
+          ...common,
+          slotHit2Enabled: true,
+          wordPartyHit2Id: 'HIT00001'
+        })
+      }
+    })
+    assert.equal(duplicate.code, 400)
+    assert.match(duplicate.response.error, /使用中の7枠には別々の演出ID/)
+  })
+
   await t.test('旧金額グループ設定を単一金額へ移行する', () => {
     const legacySettings = {
       pavlokEnabled: false,
@@ -805,21 +1027,31 @@ test('Pavlok OneComme plugin', async t => {
     assert.equal(plugin.settings.randomMin, 25)
     assert.equal(plugin.settings.randomMax, 35)
     assert.equal(plugin.settings.delaySeconds, 4)
+    assert.equal(plugin.settings.slotHit2Enabled, false)
+    assert.equal(plugin.settings.slotMiss5Enabled, false)
+    assert.equal(plugin.settings.slotMiss6Enabled, false)
+    assert.equal(plugin.settings.slotMiss7Enabled, false)
+    assert.equal(plugin.settings.slotMiss8Enabled, false)
     assert.equal(plugin.settings.hitDelaySeconds, 5)
+    assert.equal(plugin.settings.hit2DelaySeconds, 5)
     assert.equal(plugin.settings.bonusFirstDelaySeconds, 7)
     assert.equal(plugin.settings.bonusSecondDelaySeconds, 5)
     assert.equal(plugin.settings.wordPartyHitDurationSeconds, 7)
+    assert.equal(plugin.settings.wordPartyHit2DurationSeconds, 7)
     assert.equal(plugin.settings.wordPartyBonusDurationSeconds, 11)
     assert.equal(plugin.settings.wordPartyMiss1DurationSeconds, 9)
     assert.equal(plugin.settings.wordPartyMiss2DurationSeconds, 8)
     assert.equal(plugin.settings.wordPartyMiss3DurationSeconds, 7)
     assert.equal(plugin.settings.wordPartyMiss4DurationSeconds, 6)
+    assert.equal(plugin.settings.wordPartyMiss8DurationSeconds, 2)
     assert.equal(plugin.settings.slotHitName, 'ビリビリタイム')
+    assert.equal(plugin.settings.slotHit2Name, 'ビリビリタイム2')
     assert.equal(plugin.settings.slotBonusName, 'スーパービリビリタイム')
     assert.equal(plugin.settings.slotMiss1Name, 'ハズレ～')
     assert.equal(plugin.settings.slotMiss2Name, '残念でした')
     assert.equal(plugin.settings.slotMiss3Name, 'あたりませーん')
     assert.equal(plugin.settings.slotMiss4Name, 'ビリビリするなんてさいあく')
+    assert.equal(plugin.settings.slotMiss8Name, 'はずれ8')
     assert.equal(plugin.settings.cooldownSeconds, undefined)
   })
 })

@@ -29,6 +29,8 @@ input:disabled, select:disabled { opacity: .65; }
 .slot-card.hit h3 { color: #744d00; }
 .slot-card.bonus { border-color: #b254c4; background: #fcf3fe; }
 .slot-card.bonus h3 { color: #6d237b; }
+.slot-card.extra-slot.inactive { border-style: dashed; opacity: .7; }
+.slot-card.extra-slot.inactive::before { content: '抽選では未使用'; color: #5f6b7a; font-size: .82rem; font-weight: 700; }
 .slot-card .slot-manual-button { margin-top: auto; }
 .actions { display: flex; gap: 9px; align-items: center; margin-top: 15px; }
 .manual-row { display: flex; gap: 12px; align-items: flex-end; }
