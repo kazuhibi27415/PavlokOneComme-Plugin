@@ -4,6 +4,7 @@ const UID = 'com.kaz.pavlok-superchat'
 const API = `/api/plugins/${UID}`
 let loaded = false
 let monitoring = false
+let starting = false
 let manualRunning = false
 
 const byId = id => document.getElementById(id)
@@ -39,7 +40,9 @@ function renderSettings(state) {
   byId('wordparty-miss-4-id').value = settings.wordPartyMiss4Id
   byId('ignore-initial').checked = settings.ignoreInitialHistory
   byId('delay-seconds').value = settings.delaySeconds
-  byId('cooldown-seconds').value = settings.cooldownSeconds
+  byId('hit-delay-seconds').value = settings.hitDelaySeconds
+  byId('bonus-first-delay-seconds').value = settings.bonusFirstDelaySeconds
+  byId('bonus-second-delay-seconds').value = settings.bonusSecondDelaySeconds
   byId('target-amount').value = settings.targetAmount
   byId('output-mode').value = settings.outputMode
   byId('fixed-output').value = settings.fixedOutput
@@ -54,17 +57,18 @@ function renderSettings(state) {
 
 function renderRuntime(state) {
   monitoring = state.monitoring
+  starting = state.starting === true
   manualRunning = state.manualRunning === true
   const badge = byId('monitor-badge')
-  badge.textContent = monitoring ? '監視中' : '停止中'
-  badge.className = `badge ${monitoring ? 'running' : 'stopped'}`
+  badge.textContent = starting ? '開始中' : monitoring ? '監視中' : '停止中'
+  badge.className = `badge ${starting ? 'starting' : monitoring ? 'running' : 'stopped'}`
   byId('queue-state').textContent = `予約 ${state.queueLength}件`
-  byId('start-button').disabled = monitoring
-  byId('stop-button').disabled = !monitoring
-  byId('save-button').disabled = monitoring
-  byId('manual-button').disabled = monitoring || manualRunning
-  byId('manual-output').disabled = monitoring || manualRunning
-  document.querySelectorAll('.setting-input').forEach(control => { control.disabled = monitoring })
+  byId('start-button').disabled = monitoring || starting
+  byId('stop-button').disabled = !monitoring || starting
+  byId('save-button').disabled = monitoring || starting
+  byId('manual-button').disabled = monitoring || starting || manualRunning
+  byId('manual-output').disabled = monitoring || starting || manualRunning
+  document.querySelectorAll('.setting-input').forEach(control => { control.disabled = monitoring || starting })
   const logs = byId('logs')
   const atBottom = logs.scrollTop + logs.clientHeight >= logs.scrollHeight - 12
   logs.textContent = (state.logs || []).join('\n')
@@ -83,7 +87,9 @@ function collectSettings() {
     wordPartyMiss4Id: byId('wordparty-miss-4-id').value.trim(),
     ignoreInitialHistory: byId('ignore-initial').checked,
     delaySeconds: Number(byId('delay-seconds').value),
-    cooldownSeconds: Number(byId('cooldown-seconds').value),
+    hitDelaySeconds: Number(byId('hit-delay-seconds').value),
+    bonusFirstDelaySeconds: Number(byId('bonus-first-delay-seconds').value),
+    bonusSecondDelaySeconds: Number(byId('bonus-second-delay-seconds').value),
     targetAmount: Number(byId('target-amount').value),
     outputMode: byId('output-mode').value,
     fixedOutput: Number(byId('fixed-output').value),

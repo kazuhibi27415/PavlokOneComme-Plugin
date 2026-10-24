@@ -35,7 +35,9 @@ function settings(overrides = {}) {
   return {
     ...JSON.parse(JSON.stringify(plugin.defaultState.settings)),
     delaySeconds: 0,
-    cooldownSeconds: 0,
+    hitDelaySeconds: 0,
+    bonusFirstDelaySeconds: 0,
+    bonusSecondDelaySeconds: 0,
     ...overrides
   }
 }
@@ -55,7 +57,7 @@ function comment(id, options = {}) {
   }
 }
 
-function initialize(initialComments = [], storedSettings = null) {
+function initialize(initialComments = [], storedSettings = null, keepMonitoring = false) {
   fs.mkdirSync(TEST_ROOT, { recursive: true })
   const dir = fs.mkdtempSync(path.join(TEST_ROOT, 'case-'))
   const store = new MemoryStore()
@@ -64,6 +66,7 @@ function initialize(initialComments = [], storedSettings = null) {
   plugin.drawLottery = originalDrawLottery
   global.fetch = originalFetch
   plugin.init({ dir, store }, { comments: initialComments })
+  if (!keepMonitoring && plugin.monitoring) plugin.stopMonitoring()
   return { dir, store }
 }
 
@@ -108,6 +111,16 @@ test.after(() => {
 })
 
 test('Pavlok OneComme plugin', async t => {
+  await t.test('プラグイン起動時に自動で監視を開始する', async () => {
+    initialize([], null, true)
+    const state = await plugin.request({ method: 'GET' })
+    assert.equal(state.code, 200)
+    assert.equal(state.response.monitoring, true)
+    assert.equal(state.response.starting, false)
+    assert(plugin.logs.some(line => line.includes('[START] 監視開始')))
+    stop()
+  })
+
   await t.test('YouTube Super Chatだけを初期既読件数へ数える', async () => {
     initialize([
       comment('sc-jpy'),
@@ -273,15 +286,76 @@ test('Pavlok OneComme plugin', async t => {
     stop()
   })
 
-  await t.test('確変の電撃2回に共通クールダウンを適用する', async () => {
+  await t.test('あたりはWordParty呼び出し後から設定秒数を待って電撃を実行する', async () => {
     initialize()
-    await save(settings({ cooldownSeconds: 0.08 }))
+    let wordPartyCalledAt = null
+    global.fetch = async url => {
+      if (url.includes('/api/wordparty/')) {
+        wordPartyCalledAt = Date.now()
+        return { status: 204 }
+      }
+      throw new Error('想定外のfetchです。')
+    }
+    await save(settings({
+      wordPartyEnabled: true,
+      wordPartyHitId: 'HIT00001',
+      wordPartyBonusId: 'BONUS001',
+      wordPartyMiss1Id: 'MISS0001',
+      wordPartyMiss2Id: 'MISS0002',
+      wordPartyMiss3Id: 'MISS0003',
+      wordPartyMiss4Id: 'MISS0004',
+      hitDelaySeconds: 0.08
+    }))
+    plugin.drawLottery = () => ({ slot: 1, name: 'あたり', stimulusCount: 1 })
+    await start()
+    plugin.subscribe('comments', [comment('hit-wordparty-delay')])
+    await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 1)
+    assert.notEqual(wordPartyCalledAt, null)
+    assert(Date.now() - wordPartyCalledAt >= 65, 'あたりの電撃が設定した待機時間より前に実行されました。')
+    stop()
+  })
+
+  await t.test('WordParty連携OFFではあたりの最初の電撃待機を適用しない', async () => {
+    initialize()
+    await save(settings({ hitDelaySeconds: 10 }))
+    plugin.drawLottery = () => ({ slot: 1, name: 'あたり', stimulusCount: 1 })
+    await start()
+    plugin.subscribe('comments', [comment('hit-no-wordparty-delay')])
+    await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 1)
+    assert.equal(plugin.logs.filter(line => line.includes('[WAIT]')).length, 0)
+    stop()
+  })
+
+  await t.test('確変はWordParty後の1撃目と1撃目後の2撃目に個別待機を適用する', async () => {
+    initialize()
+    let wordPartyCalledAt = null
+    global.fetch = async url => {
+      if (url.includes('/api/wordparty/')) {
+        wordPartyCalledAt = Date.now()
+        return { status: 204 }
+      }
+      throw new Error('想定外のfetchです。')
+    }
+    await save(settings({
+      wordPartyEnabled: true,
+      wordPartyHitId: 'HIT00001',
+      wordPartyBonusId: 'BONUS001',
+      wordPartyMiss1Id: 'MISS0001',
+      wordPartyMiss2Id: 'MISS0002',
+      wordPartyMiss3Id: 'MISS0003',
+      wordPartyMiss4Id: 'MISS0004',
+      bonusFirstDelaySeconds: 0.08,
+      bonusSecondDelaySeconds: 0.08
+    }))
     plugin.drawLottery = () => ({ slot: 2, name: '確変', stimulusCount: 2 })
     await start()
-    const startedAt = Date.now()
-    plugin.subscribe('comments', [comment('bonus-cooldown')])
+    plugin.subscribe('comments', [comment('bonus-wordparty-delay')])
+    await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 1)
+    const firstStimulusAt = Date.now()
+    assert.notEqual(wordPartyCalledAt, null)
+    assert(firstStimulusAt - wordPartyCalledAt >= 65, '確変の1撃目が設定した待機時間より前に実行されました。')
     await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 2)
-    assert(Date.now() - startedAt >= 65, '確変の2回目がクールダウン前に実行されました。')
+    assert(Date.now() - firstStimulusAt >= 65, '確変の2撃目が設定した待機時間より前に実行されました。')
     stop()
   })
 
@@ -405,6 +479,19 @@ test('Pavlok OneComme plugin', async t => {
     }
   })
 
+  await t.test('電撃までの待機時間は0～86400秒だけを受け付ける', async () => {
+    initialize()
+    for (const [key, value] of [
+      ['hitDelaySeconds', -0.1],
+      ['bonusFirstDelaySeconds', 86400.1],
+      ['bonusSecondDelaySeconds', 'abc']
+    ]) {
+      const result = await plugin.request({ method: 'PUT', body: { settings: settings({ [key]: value }) } })
+      assert.equal(result.code, 400)
+      assert.match(result.response.error, /0～86400/)
+    }
+  })
+
   await t.test('WordParty連携ONでは6枠分の8文字演出IDを必須にする', async () => {
     initialize()
     const missing = await plugin.request({
@@ -466,6 +553,9 @@ test('Pavlok OneComme plugin', async t => {
     assert.equal(plugin.settings.randomMin, 25)
     assert.equal(plugin.settings.randomMax, 35)
     assert.equal(plugin.settings.delaySeconds, 4)
-    assert.equal(plugin.settings.cooldownSeconds, 5)
+    assert.equal(plugin.settings.hitDelaySeconds, 0)
+    assert.equal(plugin.settings.bonusFirstDelaySeconds, 0)
+    assert.equal(plugin.settings.bonusSecondDelaySeconds, 5)
+    assert.equal(plugin.settings.cooldownSeconds, undefined)
   })
 })

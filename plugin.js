@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.2.0'
+const VERSION = '1.3.0'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -30,7 +30,9 @@ const DEFAULT_SETTINGS = Object.freeze({
   wordPartyMiss3Id: '',
   wordPartyMiss4Id: '',
   delaySeconds: 3,
-  cooldownSeconds: 3,
+  hitDelaySeconds: 0,
+  bonusFirstDelaySeconds: 0,
+  bonusSecondDelaySeconds: 3,
   ignoreInitialHistory: true,
   targetAmount: 500,
   outputMode: 'fixed',
@@ -117,6 +119,9 @@ function validateSettings(rawInput) {
   if (wordPartyEnabled && new Set(wordPartyIds).size !== wordPartyIds.length) {
     throw new Error('WordPartyの6枠には別々の演出IDを指定してください。')
   }
+  const bonusSecondDelaySource = input.bonusSecondDelaySeconds == null
+    ? (input.cooldownSeconds == null ? DEFAULT_SETTINGS.bonusSecondDelaySeconds : input.cooldownSeconds)
+    : input.bonusSecondDelaySeconds
   return {
     pavlokEnabled: input.pavlokEnabled === true,
     wordPartyEnabled,
@@ -127,7 +132,9 @@ function validateSettings(rawInput) {
     wordPartyMiss3Id,
     wordPartyMiss4Id,
     delaySeconds: finiteNumber(input.delaySeconds, '検出後の待機秒数', 0, 86400),
-    cooldownSeconds: finiteNumber(input.cooldownSeconds, 'クールダウン秒数', 0, 86400),
+    hitDelaySeconds: finiteNumber(input.hitDelaySeconds == null ? DEFAULT_SETTINGS.hitDelaySeconds : input.hitDelaySeconds, 'あたりのWordParty呼び出し後から電撃までの秒数', 0, 86400),
+    bonusFirstDelaySeconds: finiteNumber(input.bonusFirstDelaySeconds == null ? DEFAULT_SETTINGS.bonusFirstDelaySeconds : input.bonusFirstDelaySeconds, '確変のWordParty呼び出し後から1撃目までの秒数', 0, 86400),
+    bonusSecondDelaySeconds: finiteNumber(bonusSecondDelaySource, '確変の1撃目から2撃目までの秒数', 0, 86400),
     ignoreInitialHistory: input.ignoreInitialHistory !== false,
     targetAmount,
     outputMode,
@@ -163,12 +170,12 @@ const plugin = {
     this.dir = dir
     this.store = store
     this.monitoring = false
+    this.starting = false
     this.manualRunning = false
     this.queue = []
     this.processing = false
     this.generation = 0
     this.jobNumber = 0
-    this.lastAttemptAt = null
     this.runtimeToken = ''
     this.logs = []
     this.recentCommentIds = new Set()
@@ -188,6 +195,9 @@ const plugin = {
     }
     this.captureComments(initialData && initialData.comments)
     this.record('INFO', `プラグイン v${VERSION} 起動`)
+    this.startMonitoring().catch(error => {
+      this.record('ERROR', `[AUTO START] 監視を開始できませんでした: ${error.message}`)
+    })
   },
 
   prepareLogFile() {
@@ -356,13 +366,15 @@ const plugin = {
     return false
   },
 
-  async runLotteryStimuli(job, count, output, generation) {
+  async runLotteryStimuli(job, count, output, generation, firstDelaySeconds, secondDelaySeconds) {
     for (let index = 1; index <= count; index += 1) {
-      const cooldownAt = this.lastAttemptAt == null ? 0 : this.lastAttemptAt + this.settings.cooldownSeconds * 1000
-      const wait = cooldownAt - Date.now()
-      if (wait > 0 && !(await this.waitWhileRunning(wait, generation))) return false
+      const delaySeconds = index === 1 ? firstDelaySeconds : secondDelaySeconds
+      if (delaySeconds > 0) {
+        const sequence = count > 1 ? ` ${index}/${count}` : ''
+        this.record('INFO', `[WAIT] #${job.number} 電撃${sequence}まで ${delaySeconds}s`)
+        if (!(await this.waitWhileRunning(delaySeconds * 1000, generation))) return false
+      }
       if (!this.monitoring || this.generation !== generation) return false
-      this.lastAttemptAt = Date.now()
       const sequence = count > 1 ? ` ${index}/${count}` : ''
       if (!this.settings.pavlokEnabled) {
         this.record('INFO', `[DRY-RUN] #${job.number} 電撃${sequence} output=${output}（Pavlokには送信していません）`)
@@ -395,9 +407,12 @@ const plugin = {
         }
         const output = this.selectOutput()
         this.record('INFO', `[OUTPUT] #${job.number} ${this.settings.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
+        const firstDelaySeconds = this.settings.wordPartyEnabled
+          ? (lottery.slot === 1 ? this.settings.hitDelaySeconds : this.settings.bonusFirstDelaySeconds)
+          : 0
         await Promise.all([
           wordPartyPromise,
-          this.runLotteryStimuli(job, lottery.stimulusCount, output, generation)
+          this.runLotteryStimuli(job, lottery.stimulusCount, output, generation, firstDelaySeconds, this.settings.bonusSecondDelaySeconds)
         ])
       }
     } finally {
@@ -502,20 +517,30 @@ const plugin = {
 
   async startMonitoring() {
     if (this.monitoring) return
+    if (this.starting) throw new Error('監視の開始処理中です。完了までお待ちください。')
     if (this.manualRunning) throw new Error('手動実行の完了後に監視を開始してください。')
-    this.settings = validateSettings(this.store.get('settings') || copyDefaults())
-    if (this.settings.pavlokEnabled) await this.refreshRuntimeToken()
-    this.generation += 1
-    this.monitoring = true
-    this.lastAttemptAt = null
-    const pending = this.recentSuperChats.filter(event => !this.handledIds.has(event.id))
-    if (this.settings.ignoreInitialHistory) {
-      pending.forEach(event => this.markHandled(event.id))
-      this.record('INFO', `[INIT] Super Chat ${pending.length} 件を既読として処理しました。`)
-    } else {
-      pending.forEach(event => this.handleSuperChat(event))
+    this.starting = true
+    const startGeneration = this.generation
+    try {
+      this.settings = validateSettings(this.store.get('settings') || copyDefaults())
+      if (this.settings.pavlokEnabled) await this.refreshRuntimeToken()
+      if (this.generation !== startGeneration) {
+        this.runtimeToken = ''
+        return
+      }
+      this.generation += 1
+      this.monitoring = true
+      const pending = this.recentSuperChats.filter(event => !this.handledIds.has(event.id))
+      if (this.settings.ignoreInitialHistory) {
+        pending.forEach(event => this.markHandled(event.id))
+        this.record('INFO', `[INIT] Super Chat ${pending.length} 件を既読として処理しました。`)
+      } else {
+        pending.forEach(event => this.handleSuperChat(event))
+      }
+      this.record('INFO', `[START] 監視開始 / Pavlok:${this.settings.pavlokEnabled ? '実送信ON' : 'DRY-RUN'} / WordParty:${this.settings.wordPartyEnabled ? 'ON' : 'OFF'}`)
+    } finally {
+      this.starting = false
     }
-    this.record('INFO', `[START] 監視開始 / Pavlok:${this.settings.pavlokEnabled ? '実送信ON' : 'DRY-RUN'} / WordParty:${this.settings.wordPartyEnabled ? 'ON' : 'OFF'}`)
   },
 
   stopMonitoring() {
@@ -529,6 +554,7 @@ const plugin = {
 
   async runManualStimulus(value) {
     if (this.monitoring) throw new Error('手動実行するには先に監視を停止してください。')
+    if (this.starting) throw new Error('監視の開始処理中は手動実行できません。')
     if (this.manualRunning) throw new Error('手動実行中です。完了までお待ちください。')
     const output = outputNumber(value, '手動実行の出力値')
     this.manualRunning = true
@@ -556,6 +582,7 @@ const plugin = {
       tokenConfigured: Boolean(this.store.get('pavlokTokenEncrypted')),
       encryptionAvailable: this.encryptionAvailable(),
       monitoring: this.monitoring,
+      starting: this.starting,
       manualRunning: this.manualRunning,
       queueLength: this.queue.length,
       logs: this.logs
@@ -568,6 +595,7 @@ const plugin = {
       const body = parseBody(req)
       if (req.method === 'PUT') {
         if (this.monitoring) throw new Error('監視中は設定を変更できません。先に停止してください。')
+        if (this.starting) throw new Error('監視の開始処理中は設定を変更できません。')
         if (this.manualRunning) throw new Error('手動実行中は設定を変更できません。完了までお待ちください。')
         const settings = validateSettings(body.settings)
         if (body.clearToken === true) this.store.set('pavlokTokenEncrypted', '')
@@ -600,7 +628,7 @@ const plugin = {
   },
 
   destroy() {
-    if (this.monitoring || this.queue.length) this.stopMonitoring()
+    if (this.monitoring || this.starting || this.queue.length) this.stopMonitoring()
     this.record('INFO', 'プラグイン終了')
   }
 }

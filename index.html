@@ -10,7 +10,7 @@
   <main class="container">
     <header>
       <div>
-        <h1>Pavlok Super Chat Controller <small>v1.2.0</small></h1>
+        <h1>Pavlok Super Chat Controller <small>v1.3.0</small></h1>
         <p>対象金額のYouTube Super Chatを6枠で抽選し、Pavlokの電撃とWordParty演出を実行します。</p>
       </div>
       <span id="monitor-badge" class="badge stopped">停止中</span>
@@ -26,9 +26,6 @@
         <label class="check"><input id="ignore-initial" class="setting-input" type="checkbox"> 開始前のSuper Chatを既読扱いにする</label>
         <label>検出後の待機秒数
           <input id="delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-        </label>
-        <label>共通クールダウン秒数
-          <input id="cooldown-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
         </label>
       </div>
       <p id="token-state" class="hint"></p>
@@ -92,8 +89,17 @@
         <label>ランダム上限（1～100）
           <input id="random-max" class="setting-input" type="number" min="1" max="100" step="1">
         </label>
+        <label>あたり：WordParty呼び出し後から電撃まで（秒）
+          <input id="hit-delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
+        </label>
+        <label>確変：WordParty呼び出し後から1撃目まで（秒）
+          <input id="bonus-first-delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
+        </label>
+        <label>確変：1撃目から2撃目まで（秒）
+          <input id="bonus-second-delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
+        </label>
       </div>
-      <p class="hint">確変の2回は共通クールダウン秒数を挟みます。送信に失敗した場合、残りの電撃は送信しません。</p>
+      <p class="hint">WordParty連携OFFでは、呼び出し後から1撃目までの待機は行いません。確変の1撃目から2撃目までの待機は常に適用します。送信に失敗した場合、残りの電撃は送信しません。</p>
     </section>
 
     <section class="panel">
