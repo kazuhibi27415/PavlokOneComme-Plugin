@@ -1,6 +1,6 @@
 # Pavlok Super Chat Controller for わんコメ
 
-バージョン1.3.1 / わんコメ5.2以降 / Windows
+バージョン1.3.2 / わんコメ5.2以降 / Windows
 
 わんコメが取得したYouTubeのSuper Chatを検出し、設定した1つの金額と完全一致したときに6枠のびりびり抽選を行うプラグインです。抽選結果に応じてPavlokの電撃とWordParty演出を実行できます。YouTube APIキーやGoogle OAuth設定は不要で、限定配信の取得可否はわんコメ側のログイン状態に従います。
 
@@ -54,6 +54,7 @@ onecomme\plugins\pavlok-onecomme-plugin\style.css
 9. Pavlok初期トークンを入力し、「実機へ電撃を送信」をONにして保存します。
 
 Super Stickerでは作動しないこと、対象外金額では`[SKIP]`になることも確認してください。
+コメントテスターを続けて複数回送信した場合も、各送信を別のSuper Chatとして処理します。同じイベントがわんコメから再配信された場合は重複処理しません。
 
 ## 手動電撃テスト
 

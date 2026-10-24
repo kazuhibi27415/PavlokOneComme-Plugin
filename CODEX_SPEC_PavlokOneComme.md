@@ -1,6 +1,6 @@
 # PavlokOneComme 開発仕様
 
-現行基準はv1.3.1です。わんコメ5.2以降の公開プラグイン機能を利用します。
+現行基準はv1.3.2です。わんコメ5.2以降の公開プラグイン機能を利用します。
 
 ## 責務分離
 
@@ -34,6 +34,7 @@
 - 金額はYouTubeコメントの`data.price`、通貨は`data.currency`を使う。旧版互換として`data.unit`を通貨の予備値にする。
 - Super Stickerやメンバーシップを`hasGift`だけで判定しない。
 - `comments`購読イベントは配列形式と`{ comments: Comment[] }`形式の両方を受け付ける。
+- コメントの重複判定は`data.id`を優先し、存在しない場合だけ外側の`id`を使う。同一イベントの再配信は無視し、外側の`id`を使い回すコメントテスターの各送信は別イベントとして処理する。
 - WordParty演出は`POST http://localhost:11180/api/wordparty/{演出ID}`で実行する。
 - WordPartyの演出IDはあたり・確変・はずれ1～4の6種類を設定し、連携ONではすべて必須かつ重複不可とする。各IDは8文字の半角英数記号に制限する。
 - WordParty連携はPavlok実機送信設定から独立させる。PavlokがDRY-RUNでもWordParty連携ONなら演出を実行する。

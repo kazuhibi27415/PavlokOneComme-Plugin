@@ -48,6 +48,7 @@ function comment(id, options = {}) {
     service: options.service || 'youtube',
     name: options.name || 'テスト視聴者',
     data: {
+      id: options.dataId,
       hasGift: options.hasGift === undefined ? true : options.hasGift,
       giftType: options.giftType || 'superchat',
       price: options.price === undefined ? 500 : options.price,
@@ -134,6 +135,24 @@ test('Pavlok OneComme plugin', async t => {
     assert(plugin.logs.some(line => line.includes('[INIT] Super Chat 2 件を既読')))
     assert.equal(plugin.handledIds.size, 2)
     assert.equal(plugin.queue.length, 0)
+    stop()
+  })
+
+  await t.test('外側IDが同じでも固有のdata.idを持つSuper Chatは別々に処理する', async () => {
+    initialize()
+    await save(settings())
+    plugin.drawLottery = () => ({ slot: 3, name: 'はずれ', stimulusCount: 0 })
+    await start()
+    plugin.subscribe('comments', {
+      comments: [
+        comment('comment-tester', { dataId: 'tester-event-1' }),
+        comment('comment-tester', { dataId: 'tester-event-2' }),
+        comment('comment-tester', { dataId: 'tester-event-2' })
+      ]
+    })
+    await waitUntil(() => plugin.logs.filter(line => line.includes('[LOTTERY]')).length === 2)
+    assert.equal(plugin.logs.filter(line => line.includes('[SUPERCHAT]')).length, 2)
+    assert.equal(plugin.logs.filter(line => line.includes('[MATCH]')).length, 2)
     stop()
   })
 

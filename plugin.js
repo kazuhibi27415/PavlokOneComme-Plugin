@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.3.1'
+const VERSION = '1.3.2'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -248,7 +248,7 @@ const plugin = {
     if (!Array.isArray(comments)) return
     for (const item of comments) {
       const data = item && item.data
-      const id = String((item && item.id) || (data && data.id) || '')
+      const id = String((data && data.id) || (item && item.id) || '')
       if (!id || !this.rememberBounded(this.recentCommentIds, this.recentCommentOrder, id, MAX_RECENT_COMMENTS)) continue
       if (!data || item.service !== 'youtube' || data.hasGift !== true || data.giftType !== 'superchat') continue
       if (typeof data.price !== 'number' || !Number.isFinite(data.price) || data.price <= 0) {

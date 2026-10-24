@@ -49,6 +49,7 @@
 - わんコメの旧WebSocket APIへ直接接続しない。
 - プラグイン権限は `comments` だけにする。
 - `comments`購読イベントは配列形式と`{ comments: Comment[] }`形式の両方を処理する。
+- コメントの重複判定は`data.id`を優先し、存在しない場合だけ外側の`id`を使う。
 - `com.kaz.pavlok-superchat` は永続設定とURLに関わるため、明示的な依頼なしに変更しない。
 
 ## セキュリティと実機操作
