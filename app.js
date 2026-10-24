@@ -38,6 +38,24 @@ function renderSettings(state) {
   byId('wordparty-miss-2-id').value = settings.wordPartyMiss2Id
   byId('wordparty-miss-3-id').value = settings.wordPartyMiss3Id
   byId('wordparty-miss-4-id').value = settings.wordPartyMiss4Id
+  byId('slot-hit-name').value = settings.slotHitName
+  byId('slot-bonus-name').value = settings.slotBonusName
+  byId('slot-miss-1-name').value = settings.slotMiss1Name
+  byId('slot-miss-2-name').value = settings.slotMiss2Name
+  byId('slot-miss-3-name').value = settings.slotMiss3Name
+  byId('slot-miss-4-name').value = settings.slotMiss4Name
+  byId('slot-hit-title').textContent = settings.slotHitName
+  byId('slot-bonus-title').textContent = settings.slotBonusName
+  byId('slot-miss-1-title').textContent = settings.slotMiss1Name
+  byId('slot-miss-2-title').textContent = settings.slotMiss2Name
+  byId('slot-miss-3-title').textContent = settings.slotMiss3Name
+  byId('slot-miss-4-title').textContent = settings.slotMiss4Name
+  byId('wordparty-hit-duration-seconds').value = settings.wordPartyHitDurationSeconds
+  byId('wordparty-bonus-duration-seconds').value = settings.wordPartyBonusDurationSeconds
+  byId('wordparty-miss-1-duration-seconds').value = settings.wordPartyMiss1DurationSeconds
+  byId('wordparty-miss-2-duration-seconds').value = settings.wordPartyMiss2DurationSeconds
+  byId('wordparty-miss-3-duration-seconds').value = settings.wordPartyMiss3DurationSeconds
+  byId('wordparty-miss-4-duration-seconds').value = settings.wordPartyMiss4DurationSeconds
   byId('ignore-initial').checked = settings.ignoreInitialHistory
   byId('delay-seconds').value = settings.delaySeconds
   byId('hit-delay-seconds').value = settings.hitDelaySeconds
@@ -68,6 +86,7 @@ function renderRuntime(state) {
   byId('save-button').disabled = monitoring || starting
   byId('manual-button').disabled = monitoring || starting || manualRunning
   byId('manual-output').disabled = monitoring || starting || manualRunning
+  document.querySelectorAll('.slot-manual-button').forEach(button => { button.disabled = starting || manualRunning })
   document.querySelectorAll('.setting-input').forEach(control => { control.disabled = monitoring || starting })
   const logs = byId('logs')
   const atBottom = logs.scrollTop + logs.clientHeight >= logs.scrollHeight - 12
@@ -85,6 +104,18 @@ function collectSettings() {
     wordPartyMiss2Id: byId('wordparty-miss-2-id').value.trim(),
     wordPartyMiss3Id: byId('wordparty-miss-3-id').value.trim(),
     wordPartyMiss4Id: byId('wordparty-miss-4-id').value.trim(),
+    slotHitName: byId('slot-hit-name').value.trim(),
+    slotBonusName: byId('slot-bonus-name').value.trim(),
+    slotMiss1Name: byId('slot-miss-1-name').value.trim(),
+    slotMiss2Name: byId('slot-miss-2-name').value.trim(),
+    slotMiss3Name: byId('slot-miss-3-name').value.trim(),
+    slotMiss4Name: byId('slot-miss-4-name').value.trim(),
+    wordPartyHitDurationSeconds: Number(byId('wordparty-hit-duration-seconds').value),
+    wordPartyBonusDurationSeconds: Number(byId('wordparty-bonus-duration-seconds').value),
+    wordPartyMiss1DurationSeconds: Number(byId('wordparty-miss-1-duration-seconds').value),
+    wordPartyMiss2DurationSeconds: Number(byId('wordparty-miss-2-duration-seconds').value),
+    wordPartyMiss3DurationSeconds: Number(byId('wordparty-miss-3-duration-seconds').value),
+    wordPartyMiss4DurationSeconds: Number(byId('wordparty-miss-4-duration-seconds').value),
     ignoreInitialHistory: byId('ignore-initial').checked,
     delaySeconds: Number(byId('delay-seconds').value),
     hitDelaySeconds: Number(byId('hit-delay-seconds').value),
@@ -146,6 +177,21 @@ async function runManual() {
   }
 }
 
+async function runSlotManual(slot) {
+  document.querySelectorAll('.slot-manual-button').forEach(button => { button.disabled = true })
+  try {
+    if (!monitoring) await saveSettings(false)
+    const state = await api('POST', { action: 'manual-slot', slot })
+    renderRuntime(state)
+    const names = [state.settings.slotHitName, state.settings.slotBonusName, state.settings.slotMiss1Name, state.settings.slotMiss2Name, state.settings.slotMiss3Name, state.settings.slotMiss4Name]
+    showMessage(state.monitoring ? `${names[slot - 1]}の手動実行を監視キューへ予約しました。` : `${names[slot - 1]}を手動実行しました。`)
+  } catch (error) {
+    showMessage(error.message, 'error')
+  } finally {
+    await refresh()
+  }
+}
+
 async function refresh() {
   try {
     const state = await api('GET')
@@ -165,6 +211,21 @@ byId('save-button').addEventListener('click', async () => {
 byId('start-button').addEventListener('click', () => run('start'))
 byId('stop-button').addEventListener('click', () => run('stop'))
 byId('manual-button').addEventListener('click', runManual)
+document.querySelectorAll('.slot-manual-button').forEach(button => {
+  button.addEventListener('click', () => runSlotManual(Number(button.dataset.slot)))
+})
+for (const [inputId, titleId] of [
+  ['slot-hit-name', 'slot-hit-title'],
+  ['slot-bonus-name', 'slot-bonus-title'],
+  ['slot-miss-1-name', 'slot-miss-1-title'],
+  ['slot-miss-2-name', 'slot-miss-2-title'],
+  ['slot-miss-3-name', 'slot-miss-3-title'],
+  ['slot-miss-4-name', 'slot-miss-4-title']
+]) {
+  byId(inputId).addEventListener('input', event => {
+    byId(titleId).textContent = event.target.value.trim() || '未設定'
+  })
+}
 
 refresh()
 setInterval(refresh, 1000)

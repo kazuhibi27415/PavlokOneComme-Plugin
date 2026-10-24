@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.3.2'
+const VERSION = '1.4.0'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -29,6 +29,18 @@ const DEFAULT_SETTINGS = Object.freeze({
   wordPartyMiss2Id: '',
   wordPartyMiss3Id: '',
   wordPartyMiss4Id: '',
+  slotHitName: 'あたり',
+  slotBonusName: '確変',
+  slotMiss1Name: 'はずれ1',
+  slotMiss2Name: 'はずれ2',
+  slotMiss3Name: 'はずれ3',
+  slotMiss4Name: 'はずれ4',
+  wordPartyHitDurationSeconds: 0,
+  wordPartyBonusDurationSeconds: 0,
+  wordPartyMiss1DurationSeconds: 0,
+  wordPartyMiss2DurationSeconds: 0,
+  wordPartyMiss3DurationSeconds: 0,
+  wordPartyMiss4DurationSeconds: 0,
   delaySeconds: 3,
   hitDelaySeconds: 0,
   bonusFirstDelaySeconds: 0,
@@ -82,6 +94,14 @@ function wordPartyId(value, label, required) {
   return id
 }
 
+function slotName(value, label, fallback) {
+  const name = String(value == null ? fallback : value).trim()
+  if (!name || Array.from(name).length > 40 || /[\u0000-\u001f\u007f]/.test(name)) {
+    throw new Error(`${label}は1～40文字で指定してください。`)
+  }
+  return name
+}
+
 function migrateLegacySettings(input) {
   if (!input || typeof input !== 'object' || !Array.isArray(input.groups)) return input
   const group = input.groups.find(item => item && item.enabled === true) || input.groups.find(Boolean) || {}
@@ -131,6 +151,18 @@ function validateSettings(rawInput) {
     wordPartyMiss2Id,
     wordPartyMiss3Id,
     wordPartyMiss4Id,
+    slotHitName: slotName(input.slotHitName, 'あたり枠名', DEFAULT_SETTINGS.slotHitName),
+    slotBonusName: slotName(input.slotBonusName, '確変枠名', DEFAULT_SETTINGS.slotBonusName),
+    slotMiss1Name: slotName(input.slotMiss1Name, 'はずれ1枠名', DEFAULT_SETTINGS.slotMiss1Name),
+    slotMiss2Name: slotName(input.slotMiss2Name, 'はずれ2枠名', DEFAULT_SETTINGS.slotMiss2Name),
+    slotMiss3Name: slotName(input.slotMiss3Name, 'はずれ3枠名', DEFAULT_SETTINGS.slotMiss3Name),
+    slotMiss4Name: slotName(input.slotMiss4Name, 'はずれ4枠名', DEFAULT_SETTINGS.slotMiss4Name),
+    wordPartyHitDurationSeconds: finiteNumber(input.wordPartyHitDurationSeconds == null ? DEFAULT_SETTINGS.wordPartyHitDurationSeconds : input.wordPartyHitDurationSeconds, 'あたりの演出時間', 0, 86400),
+    wordPartyBonusDurationSeconds: finiteNumber(input.wordPartyBonusDurationSeconds == null ? DEFAULT_SETTINGS.wordPartyBonusDurationSeconds : input.wordPartyBonusDurationSeconds, '確変の演出時間', 0, 86400),
+    wordPartyMiss1DurationSeconds: finiteNumber(input.wordPartyMiss1DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss1DurationSeconds : input.wordPartyMiss1DurationSeconds, 'はずれ1の演出時間', 0, 86400),
+    wordPartyMiss2DurationSeconds: finiteNumber(input.wordPartyMiss2DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss2DurationSeconds : input.wordPartyMiss2DurationSeconds, 'はずれ2の演出時間', 0, 86400),
+    wordPartyMiss3DurationSeconds: finiteNumber(input.wordPartyMiss3DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss3DurationSeconds : input.wordPartyMiss3DurationSeconds, 'はずれ3の演出時間', 0, 86400),
+    wordPartyMiss4DurationSeconds: finiteNumber(input.wordPartyMiss4DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss4DurationSeconds : input.wordPartyMiss4DurationSeconds, 'はずれ4の演出時間', 0, 86400),
     delaySeconds: finiteNumber(input.delaySeconds, '検出後の待機秒数', 0, 86400),
     hitDelaySeconds: finiteNumber(input.hitDelaySeconds == null ? DEFAULT_SETTINGS.hitDelaySeconds : input.hitDelaySeconds, 'あたりのWordParty呼び出し後から電撃までの秒数', 0, 86400),
     bonusFirstDelaySeconds: finiteNumber(input.bonusFirstDelaySeconds == null ? DEFAULT_SETTINGS.bonusFirstDelaySeconds : input.bonusFirstDelaySeconds, '確変のWordParty呼び出し後から1撃目までの秒数', 0, 86400),
@@ -312,15 +344,16 @@ const plugin = {
     this.processQueue()
   },
 
-  async waitWhileRunning(milliseconds, generation) {
+  async waitWhileRunning(milliseconds, generation, allowManual = false) {
+    const active = () => this.generation === generation && (this.monitoring || (allowManual && this.manualRunning))
     let remaining = milliseconds
     while (remaining > 0) {
-      if (!this.monitoring || this.generation !== generation) return false
+      if (!active()) return false
       const interval = Math.min(remaining, 250)
       await new Promise(resolve => setTimeout(resolve, interval))
       remaining -= interval
     }
-    return this.monitoring && this.generation === generation
+    return active()
   },
 
   selectOutput() {
@@ -330,28 +363,38 @@ const plugin = {
 
   drawLottery() {
     const slot = Math.floor(Math.random() * 6) + 1
-    if (slot === 1) return { slot, name: 'あたり', stimulusCount: 1 }
-    if (slot === 2) return { slot, name: '確変', stimulusCount: 2 }
-    return { slot, name: 'はずれ', stimulusCount: 0 }
+    return this.lotteryForSlot(slot)
+  },
+
+  lotteryForSlot(slot) {
+    if (slot === 1) return { slot, name: this.settings.slotHitName, stimulusCount: 1 }
+    if (slot === 2) return { slot, name: this.settings.slotBonusName, stimulusCount: 2 }
+    const missNames = [this.settings.slotMiss1Name, this.settings.slotMiss2Name, this.settings.slotMiss3Name, this.settings.slotMiss4Name]
+    return { slot, name: missNames[slot - 3], stimulusCount: 0 }
+  },
+
+  wordPartyEffect(lottery) {
+    const effects = [
+      null,
+      { name: this.settings.slotHitName, id: this.settings.wordPartyHitId, durationSeconds: this.settings.wordPartyHitDurationSeconds },
+      { name: this.settings.slotBonusName, id: this.settings.wordPartyBonusId, durationSeconds: this.settings.wordPartyBonusDurationSeconds },
+      { name: this.settings.slotMiss1Name, id: this.settings.wordPartyMiss1Id, durationSeconds: this.settings.wordPartyMiss1DurationSeconds },
+      { name: this.settings.slotMiss2Name, id: this.settings.wordPartyMiss2Id, durationSeconds: this.settings.wordPartyMiss2DurationSeconds },
+      { name: this.settings.slotMiss3Name, id: this.settings.wordPartyMiss3Id, durationSeconds: this.settings.wordPartyMiss3DurationSeconds },
+      { name: this.settings.slotMiss4Name, id: this.settings.wordPartyMiss4Id, durationSeconds: this.settings.wordPartyMiss4DurationSeconds }
+    ]
+    return effects[lottery.slot]
   },
 
   async triggerWordParty(job, lottery) {
     if (!this.settings.wordPartyEnabled) return true
-    const effects = [
-      null,
-      { name: 'あたり', id: this.settings.wordPartyHitId },
-      { name: '確変', id: this.settings.wordPartyBonusId },
-      { name: 'はずれ1', id: this.settings.wordPartyMiss1Id },
-      { name: 'はずれ2', id: this.settings.wordPartyMiss2Id },
-      { name: 'はずれ3', id: this.settings.wordPartyMiss3Id },
-      { name: 'はずれ4', id: this.settings.wordPartyMiss4Id }
-    ]
-    const effect = effects[lottery.slot]
+    const effect = this.wordPartyEffect(lottery)
+    const prefix = `[WORDPARTY] #${job.number}`
     if (!effect || !effect.id) {
-      this.record('WARN', `[WORDPARTY] #${job.number} ${lottery.slot}/6の演出IDがありません。`)
+      this.record('WARN', `${prefix} ${lottery.slot}/6の演出IDがありません。`)
       return false
     }
-    this.record('INFO', `[WORDPARTY] #${job.number} ${effect.name} 演出実行`)
+    this.record('INFO', `${prefix} ${effect.name} 演出実行`)
     let response
     try {
       response = await this.fetchWithTimeout(`${WORD_PARTY_API_BASE}${encodeURIComponent(effect.id)}`, {
@@ -360,26 +403,36 @@ const plugin = {
         redirect: 'manual'
       }, 5000)
     } catch (_) {
-      this.record('WARN', `[WORDPARTY] #${job.number} ${effect.name} 通信失敗。再実行しません。`)
+      this.record('WARN', `${prefix} ${effect.name} 通信失敗。再実行しません。`)
       return false
     }
     if (response.status >= 200 && response.status < 300) {
-      this.record('INFO', `[WORDPARTY] #${job.number} ${effect.name} OK (HTTP ${response.status})`)
+      this.record('INFO', `${prefix} ${effect.name} OK (HTTP ${response.status})`)
       return true
     }
-    this.record('WARN', `[WORDPARTY] #${job.number} ${effect.name} ERROR (HTTP ${response.status})。再実行しません。`)
+    this.record('WARN', `${prefix} ${effect.name} ERROR (HTTP ${response.status})。再実行しません。`)
     return false
   },
 
-  async runLotteryStimuli(job, count, output, generation, firstDelaySeconds, secondDelaySeconds) {
+  async reserveWordPartyDuration(job, lottery, generation, startedAt, allowManual = false) {
+    if (!this.settings.wordPartyEnabled) return true
+    const effect = this.wordPartyEffect(lottery)
+    if (!effect || effect.durationSeconds <= 0) return true
+    this.record('INFO', `[WAIT] #${job.number} ${effect.name}の演出時間 ${effect.durationSeconds}s`)
+    const remaining = effect.durationSeconds * 1000 - (Date.now() - startedAt)
+    if (remaining <= 0) return true
+    return this.waitWhileRunning(remaining, generation, allowManual)
+  },
+
+  async runLotteryStimuli(job, count, output, generation, firstDelaySeconds, secondDelaySeconds, allowManual = false) {
     for (let index = 1; index <= count; index += 1) {
       const delaySeconds = index === 1 ? firstDelaySeconds : secondDelaySeconds
       if (delaySeconds > 0) {
         const sequence = count > 1 ? ` ${index}/${count}` : ''
         this.record('INFO', `[WAIT] #${job.number} 電撃${sequence}まで ${delaySeconds}s`)
-        if (!(await this.waitWhileRunning(delaySeconds * 1000, generation))) return false
+        if (!(await this.waitWhileRunning(delaySeconds * 1000, generation, allowManual))) return false
       }
-      if (!this.monitoring || this.generation !== generation) return false
+      if (this.generation !== generation || (!this.monitoring && !(allowManual && this.manualRunning))) return false
       const sequence = count > 1 ? ` ${index}/${count}` : ''
       if (!this.settings.pavlokEnabled) {
         this.record('INFO', `[DRY-RUN] #${job.number} 電撃${sequence} output=${output}（Pavlokには送信していません）`)
@@ -389,6 +442,27 @@ const plugin = {
       if (!result.ok) return false
     }
     return true
+  },
+
+  async executeLottery(job, lottery, generation, allowManual = false) {
+    this.record('INFO', `[LOTTERY] #${job.number} ${lottery.slot}/6 ${lottery.name}${lottery.stimulusCount ? `（電撃${lottery.stimulusCount}回）` : '（電撃なし）'}`)
+    const wordPartyStartedAt = Date.now()
+    const wordPartyPromise = this.triggerWordParty(job, lottery)
+    const wordPartyDurationPromise = this.reserveWordPartyDuration(job, lottery, generation, wordPartyStartedAt, allowManual)
+    if (!lottery.stimulusCount) {
+      await Promise.all([wordPartyPromise, wordPartyDurationPromise])
+      return
+    }
+    const output = this.selectOutput()
+    this.record('INFO', `[OUTPUT] #${job.number} ${this.settings.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
+    const firstDelaySeconds = this.settings.wordPartyEnabled
+      ? (lottery.slot === 1 ? this.settings.hitDelaySeconds : this.settings.bonusFirstDelaySeconds)
+      : 0
+    await Promise.all([
+      wordPartyPromise,
+      wordPartyDurationPromise,
+      this.runLotteryStimuli(job, lottery.stimulusCount, output, generation, firstDelaySeconds, this.settings.bonusSecondDelaySeconds, allowManual)
+    ])
   },
 
   async processQueue() {
@@ -402,23 +476,10 @@ const plugin = {
         if (wait > 0 && !(await this.waitWhileRunning(wait, generation))) return
         if (!this.monitoring || this.generation !== generation) return
         this.queue.shift()
-        const lottery = this.drawLottery()
-        this.record('INFO', `[MATCH] #${job.number} ${job.event.price}円`)
-        this.record('INFO', `[LOTTERY] #${job.number} ${lottery.slot}/6 ${lottery.name}${lottery.stimulusCount ? `（電撃${lottery.stimulusCount}回）` : '（電撃なし）'}`)
-        const wordPartyPromise = this.triggerWordParty(job, lottery)
-        if (!lottery.stimulusCount) {
-          await wordPartyPromise
-          continue
-        }
-        const output = this.selectOutput()
-        this.record('INFO', `[OUTPUT] #${job.number} ${this.settings.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
-        const firstDelaySeconds = this.settings.wordPartyEnabled
-          ? (lottery.slot === 1 ? this.settings.hitDelaySeconds : this.settings.bonusFirstDelaySeconds)
-          : 0
-        await Promise.all([
-          wordPartyPromise,
-          this.runLotteryStimuli(job, lottery.stimulusCount, output, generation, firstDelaySeconds, this.settings.bonusSecondDelaySeconds)
-        ])
+        const lottery = job.manualSlot ? this.lotteryForSlot(job.manualSlot) : this.drawLottery()
+        if (job.manualSlot) this.record('INFO', `[MANUAL] #${job.number} ${lottery.name} 手動実行`)
+        else this.record('INFO', `[MATCH] #${job.number} ${job.event.price}円`)
+        await this.executeLottery(job, lottery, generation)
       }
     } finally {
       this.processing = false
@@ -580,6 +641,30 @@ const plugin = {
     }
   },
 
+  async runSlotManual(value) {
+    const slot = Number(value)
+    if (!Number.isInteger(slot) || slot < 1 || slot > 6) throw new Error('手動実行の抽選枠が不正です。')
+    if (this.starting) throw new Error('監視の開始処理中は手動実行できません。')
+    const lottery = this.lotteryForSlot(slot)
+    if (this.monitoring) {
+      this.jobNumber += 1
+      this.queue.push({ number: this.jobNumber, manualSlot: slot, readyAt: Date.now() })
+      this.record('INFO', `[QUEUE] #${this.jobNumber} ${lottery.name} 手動実行予約`)
+      this.processQueue()
+      return
+    }
+    if (this.manualRunning) throw new Error('手動実行中です。完了までお待ちください。')
+    this.manualRunning = true
+    const generation = this.generation
+    try {
+      if (this.settings.pavlokEnabled) await this.refreshRuntimeToken()
+      this.record('INFO', `[MANUAL] #MANUAL ${lottery.name} 手動実行`)
+      await this.executeLottery({ number: 'MANUAL', manualSlot: slot }, lottery, generation, true)
+    } finally {
+      this.manualRunning = false
+    }
+  },
+
   publicState() {
     return {
       version: VERSION,
@@ -623,6 +708,10 @@ const plugin = {
       }
       if (req.method === 'POST' && body.action === 'manual') {
         await this.runManualStimulus(body.output)
+        return { code: 200, response: this.publicState() }
+      }
+      if (req.method === 'POST' && body.action === 'manual-slot') {
+        await this.runSlotManual(body.slot)
         return { code: 200, response: this.publicState() }
       }
       return { code: 405, response: { error: '対応していない操作です。' } }
