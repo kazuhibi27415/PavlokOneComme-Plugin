@@ -163,15 +163,19 @@ test('Pavlok OneComme plugin', async t => {
     ]
     plugin.drawLottery = () => outcomes.shift()
     await start()
-    plugin.subscribe('comments', [
-      comment('hit-500', { price: 500 }),
-      comment('fraction', { price: 500.5 }),
-      comment('bonus-500', { price: 500 }),
-      comment('unmatched', { price: 1000 }),
-      comment('foreign', { price: 500, currency: 'USD' }),
-      comment('miss-500', { price: 500 }),
-      comment('miss-500', { price: 500 })
-    ])
+    plugin.subscribe('comments', {
+      comments: [
+        comment('hit-500', { price: 500 }),
+        comment('fraction', { price: 500.5 }),
+        comment('bonus-500', { price: 500 }),
+        comment('unmatched', { price: 1000 }),
+        comment('foreign', { price: 500, currency: 'USD' }),
+        comment('miss-500', { price: 500 }),
+        comment('miss-500', { price: 500 })
+      ],
+      userNameMap: {},
+      options: {}
+    })
     await waitUntil(() => plugin.logs.filter(line => line.includes('[LOTTERY]')).length === 3)
     await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 3)
     const matches = plugin.logs.filter(line => line.includes('[MATCH]'))

@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.3.0'
+const VERSION = '1.3.1'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -275,7 +275,12 @@ const plugin = {
   },
 
   subscribe(type, ...args) {
-    if (type === 'comments') this.captureComments(args[0])
+    if (type !== 'comments') return
+    const payload = args[0]
+    const comments = Array.isArray(payload)
+      ? payload
+      : payload && Array.isArray(payload.comments) ? payload.comments : []
+    this.captureComments(comments)
   },
 
   markHandled(id) {
