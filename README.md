@@ -1,6 +1,6 @@
 # Pavlok Super Chat Controller for わんコメ
 
-バージョン1.4.0 / わんコメ5.2以降 / Windows
+バージョン1.4.1 / わんコメ5.2以降 / Windows
 
 わんコメが取得したYouTubeのSuper Chatを検出し、設定した1つの金額と完全一致したときに6枠のびりびり抽選を行うプラグインです。抽選結果に応じてPavlokの電撃とWordParty演出を実行できます。YouTube APIキーやGoogle OAuth設定は不要で、限定配信の取得可否はわんコメ側のログイン状態に従います。
 

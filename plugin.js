@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.4.0'
+const VERSION = '1.4.1'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -29,28 +29,28 @@ const DEFAULT_SETTINGS = Object.freeze({
   wordPartyMiss2Id: '',
   wordPartyMiss3Id: '',
   wordPartyMiss4Id: '',
-  slotHitName: 'あたり',
-  slotBonusName: '確変',
-  slotMiss1Name: 'はずれ1',
-  slotMiss2Name: 'はずれ2',
-  slotMiss3Name: 'はずれ3',
-  slotMiss4Name: 'はずれ4',
-  wordPartyHitDurationSeconds: 0,
-  wordPartyBonusDurationSeconds: 0,
-  wordPartyMiss1DurationSeconds: 0,
-  wordPartyMiss2DurationSeconds: 0,
-  wordPartyMiss3DurationSeconds: 0,
-  wordPartyMiss4DurationSeconds: 0,
-  delaySeconds: 3,
-  hitDelaySeconds: 0,
-  bonusFirstDelaySeconds: 0,
-  bonusSecondDelaySeconds: 3,
+  slotHitName: 'ビリビリタイム',
+  slotBonusName: 'スーパービリビリタイム',
+  slotMiss1Name: 'ハズレ～',
+  slotMiss2Name: '残念でした',
+  slotMiss3Name: 'あたりませーん',
+  slotMiss4Name: 'ビリビリするなんてさいあく',
+  wordPartyHitDurationSeconds: 7,
+  wordPartyBonusDurationSeconds: 11,
+  wordPartyMiss1DurationSeconds: 9,
+  wordPartyMiss2DurationSeconds: 8,
+  wordPartyMiss3DurationSeconds: 7,
+  wordPartyMiss4DurationSeconds: 6,
+  delaySeconds: 1,
+  hitDelaySeconds: 5,
+  bonusFirstDelaySeconds: 7,
+  bonusSecondDelaySeconds: 2,
   ignoreInitialHistory: true,
-  targetAmount: 500,
+  targetAmount: 304,
   outputMode: 'fixed',
-  fixedOutput: 20,
-  randomMin: 20,
-  randomMax: 20
+  fixedOutput: 50,
+  randomMin: 30,
+  randomMax: 90
 })
 
 function copyDefaults() {

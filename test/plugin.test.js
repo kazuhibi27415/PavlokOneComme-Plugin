@@ -34,6 +34,8 @@ class MemoryStore {
 function settings(overrides = {}) {
   return {
     ...JSON.parse(JSON.stringify(plugin.defaultState.settings)),
+    pavlokEnabled: false,
+    wordPartyEnabled: false,
     delaySeconds: 0,
     hitDelaySeconds: 0,
     bonusFirstDelaySeconds: 0,
@@ -44,6 +46,11 @@ function settings(overrides = {}) {
     wordPartyMiss2DurationSeconds: 0,
     wordPartyMiss3DurationSeconds: 0,
     wordPartyMiss4DurationSeconds: 0,
+    targetAmount: 500,
+    outputMode: 'fixed',
+    fixedOutput: 20,
+    randomMin: 20,
+    randomMax: 20,
     ...overrides
   }
 }
@@ -118,6 +125,41 @@ test.after(() => {
 })
 
 test('Pavlok OneComme plugin', async t => {
+  await t.test('演出IDを除く現在の設定内容を安全な初期設定として保持する', () => {
+    assert.deepEqual(plugin.defaultState.settings, {
+      pavlokEnabled: false,
+      wordPartyEnabled: false,
+      wordPartyHitId: '',
+      wordPartyBonusId: '',
+      wordPartyMiss1Id: '',
+      wordPartyMiss2Id: '',
+      wordPartyMiss3Id: '',
+      wordPartyMiss4Id: '',
+      slotHitName: 'ビリビリタイム',
+      slotBonusName: 'スーパービリビリタイム',
+      slotMiss1Name: 'ハズレ～',
+      slotMiss2Name: '残念でした',
+      slotMiss3Name: 'あたりませーん',
+      slotMiss4Name: 'ビリビリするなんてさいあく',
+      wordPartyHitDurationSeconds: 7,
+      wordPartyBonusDurationSeconds: 11,
+      wordPartyMiss1DurationSeconds: 9,
+      wordPartyMiss2DurationSeconds: 8,
+      wordPartyMiss3DurationSeconds: 7,
+      wordPartyMiss4DurationSeconds: 6,
+      delaySeconds: 1,
+      hitDelaySeconds: 5,
+      bonusFirstDelaySeconds: 7,
+      bonusSecondDelaySeconds: 2,
+      ignoreInitialHistory: true,
+      targetAmount: 304,
+      outputMode: 'fixed',
+      fixedOutput: 50,
+      randomMin: 30,
+      randomMax: 90
+    })
+  })
+
   await t.test('プラグイン起動時に自動で監視を開始する', async () => {
     initialize([], null, true)
     const state = await plugin.request({ method: 'GET' })
@@ -171,7 +213,14 @@ test('Pavlok OneComme plugin', async t => {
         results.push(originalDrawLottery.call(plugin))
       }
       assert.deepEqual(results.map(result => result.slot), [1, 2, 3, 4, 5, 6])
-      assert.deepEqual(results.map(result => result.name), ['あたり', '確変', 'はずれ1', 'はずれ2', 'はずれ3', 'はずれ4'])
+      assert.deepEqual(results.map(result => result.name), [
+        'ビリビリタイム',
+        'スーパービリビリタイム',
+        'ハズレ～',
+        '残念でした',
+        'あたりませーん',
+        'ビリビリするなんてさいあく'
+      ])
       assert.deepEqual(results.map(result => result.stimulusCount), [1, 2, 0, 0, 0, 0])
     } finally {
       Math.random = originalRandom
@@ -329,7 +378,7 @@ test('Pavlok OneComme plugin', async t => {
     plugin.subscribe('comments', [comment('duration-first'), comment('duration-second')])
     await waitUntil(() => calledAt.length === 2)
     assert(calledAt[1] - calledAt[0] >= 65, '演出時間が終わる前に次のWordParty演出が開始されました。')
-    assert(plugin.logs.some(line => line.includes('はずれ1の演出時間 0.08s')))
+    assert(plugin.logs.some(line => line.includes(`${plugin.settings.slotMiss1Name}の演出時間 0.08s`)))
     stop()
   })
 
@@ -681,7 +730,8 @@ test('Pavlok OneComme plugin', async t => {
           wordPartyBonusId: 'BONUS001',
           wordPartyMiss1Id: 'MISS0001',
           wordPartyMiss2Id: 'MISS0002',
-          wordPartyMiss3Id: 'MISS0003'
+          wordPartyMiss3Id: 'MISS0003',
+          wordPartyMiss4Id: ''
         })
       }
     })
@@ -731,21 +781,21 @@ test('Pavlok OneComme plugin', async t => {
     assert.equal(plugin.settings.randomMin, 25)
     assert.equal(plugin.settings.randomMax, 35)
     assert.equal(plugin.settings.delaySeconds, 4)
-    assert.equal(plugin.settings.hitDelaySeconds, 0)
-    assert.equal(plugin.settings.bonusFirstDelaySeconds, 0)
+    assert.equal(plugin.settings.hitDelaySeconds, 5)
+    assert.equal(plugin.settings.bonusFirstDelaySeconds, 7)
     assert.equal(plugin.settings.bonusSecondDelaySeconds, 5)
-    assert.equal(plugin.settings.wordPartyHitDurationSeconds, 0)
-    assert.equal(plugin.settings.wordPartyBonusDurationSeconds, 0)
-    assert.equal(plugin.settings.wordPartyMiss1DurationSeconds, 0)
-    assert.equal(plugin.settings.wordPartyMiss2DurationSeconds, 0)
-    assert.equal(plugin.settings.wordPartyMiss3DurationSeconds, 0)
-    assert.equal(plugin.settings.wordPartyMiss4DurationSeconds, 0)
-    assert.equal(plugin.settings.slotHitName, 'あたり')
-    assert.equal(plugin.settings.slotBonusName, '確変')
-    assert.equal(plugin.settings.slotMiss1Name, 'はずれ1')
-    assert.equal(plugin.settings.slotMiss2Name, 'はずれ2')
-    assert.equal(plugin.settings.slotMiss3Name, 'はずれ3')
-    assert.equal(plugin.settings.slotMiss4Name, 'はずれ4')
+    assert.equal(plugin.settings.wordPartyHitDurationSeconds, 7)
+    assert.equal(plugin.settings.wordPartyBonusDurationSeconds, 11)
+    assert.equal(plugin.settings.wordPartyMiss1DurationSeconds, 9)
+    assert.equal(plugin.settings.wordPartyMiss2DurationSeconds, 8)
+    assert.equal(plugin.settings.wordPartyMiss3DurationSeconds, 7)
+    assert.equal(plugin.settings.wordPartyMiss4DurationSeconds, 6)
+    assert.equal(plugin.settings.slotHitName, 'ビリビリタイム')
+    assert.equal(plugin.settings.slotBonusName, 'スーパービリビリタイム')
+    assert.equal(plugin.settings.slotMiss1Name, 'ハズレ～')
+    assert.equal(plugin.settings.slotMiss2Name, '残念でした')
+    assert.equal(plugin.settings.slotMiss3Name, 'あたりませーん')
+    assert.equal(plugin.settings.slotMiss4Name, 'ビリビリするなんてさいあく')
     assert.equal(plugin.settings.cooldownSeconds, undefined)
   })
 })
