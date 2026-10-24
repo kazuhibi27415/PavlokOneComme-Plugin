@@ -619,6 +619,30 @@ test('Pavlok OneComme plugin', async t => {
     stop()
   })
 
+  await t.test('認証応答にruntime tokenがない環境でも保存済みAPIキーで電撃を送信する', async () => {
+    initialize()
+    const calls = []
+    plugin.loadInitialToken = () => 'direct-api-key'
+    global.fetch = async (url, options) => {
+      calls.push({ url, options })
+      if (url.includes('/api/v5/user/')) {
+        return { status: 200, json: async () => ({ user: { id: 'other-streamer' } }) }
+      }
+      return { status: 200, json: async () => ({}) }
+    }
+    const enabled = settings({ pavlokEnabled: true })
+    plugin.store.set('settings', enabled)
+    plugin.settings = enabled
+    const result = await plugin.request({ method: 'POST', body: { action: 'manual', output: 25 } })
+    assert.equal(result.code, 200)
+    const stimulusCalls = calls.filter(call => call.url.includes('/stimulus/send'))
+    assert.equal(stimulusCalls.length, 1)
+    assert.equal(stimulusCalls[0].options.headers.Authorization, 'Bearer direct-api-key')
+    assert.equal(plugin.runtimeToken, 'direct-api-key')
+    assert(plugin.logs.some(line => line.includes('保存済みAPIキーを使用します')))
+    assert(!plugin.logs.some(line => line.includes('direct-api-key')))
+  })
+
   await t.test('確変の1回目が401ならtokenだけ更新して残りを送信しない', async () => {
     initialize()
     const calls = []

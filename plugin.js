@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.4.1'
+const VERSION = '1.4.2'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -61,7 +61,7 @@ function normalizeToken(value) {
   const token = String(value || '').trim().replace(/^Bearer\s*/i, '').replace(/\s+/g, '')
   if (!token) return ''
   if (token.length > 8192 || !/^[\x21-\x7e]+$/.test(token)) {
-    throw new Error('Pavlok初期トークンには半角英数字の値を貼り付けてください。')
+    throw new Error('Pavlok APIキー / 初期トークンには半角英数字の値を貼り付けてください。')
   }
   return token
 }
@@ -522,7 +522,8 @@ const plugin = {
 
   async refreshRuntimeToken() {
     const initialToken = this.loadInitialToken()
-    if (!initialToken) throw new Error('Pavlok初期トークンが未設定です。')
+    if (!initialToken) throw new Error('Pavlok APIキー / 初期トークンが未設定です。')
+    this.runtimeToken = initialToken
     let response
     try {
       response = await this.fetchWithTimeout(PAVLOK_USER_URL, {
@@ -538,11 +539,20 @@ const plugin = {
     try {
       data = await response.json()
     } catch (_) {
-      throw new Error('Pavlok認証応答がJSONではありません。')
+      this.record('WARN', '[PAVLOK AUTH] 認証応答がJSONではないため、保存済みAPIキーを使用します。')
+      return true
     }
-    const token = normalizeToken(data && data.user && data.user.token)
-    if (!token) throw new Error('Pavlok認証応答にuser.tokenがありません。')
-    this.runtimeToken = token
+    const responseToken = normalizeToken(
+      (data && data.user && data.user.token) ||
+      (data && data.token) ||
+      (data && data.access_token)
+    )
+    if (responseToken) {
+      this.runtimeToken = responseToken
+      this.record('INFO', '[PAVLOK AUTH] 認証確認 OK / 認証応答のtokenを使用します。')
+    } else {
+      this.record('INFO', '[PAVLOK AUTH] 認証確認 OK / 保存済みAPIキーを使用します。')
+    }
     return true
   },
 
@@ -691,7 +701,7 @@ const plugin = {
         if (body.clearToken === true) this.store.set('pavlokTokenEncrypted', '')
         if (body.pavlokToken) this.saveInitialToken(body.pavlokToken)
         if (settings.pavlokEnabled && !this.store.get('pavlokTokenEncrypted')) {
-          throw new Error('実機送信をONにするにはPavlok初期トークンが必要です。')
+          throw new Error('実機送信をONにするにはPavlok APIキー / 初期トークンが必要です。')
         }
         this.settings = settings
         this.store.set('settings', settings)
