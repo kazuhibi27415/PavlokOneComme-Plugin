@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.0.1'
+const VERSION = '1.1.0'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -24,12 +24,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   delaySeconds: 3,
   cooldownSeconds: 3,
   ignoreInitialHistory: true,
-  groups: [
-    { enabled: true, amounts: '200,500', outputMode: 'fixed', fixedOutput: 20, randomMin: 20, randomMax: 20 },
-    { enabled: true, amounts: '1000', outputMode: 'fixed', fixedOutput: 20, randomMin: 20, randomMax: 20 },
-    { enabled: false, amounts: '3000', outputMode: 'random', fixedOutput: 20, randomMin: 20, randomMax: 40 },
-    { enabled: false, amounts: '5000', outputMode: 'random', fixedOutput: 20, randomMin: 20, randomMax: 40 }
-  ]
+  targetAmount: 500,
+  outputMode: 'fixed',
+  fixedOutput: 20,
+  randomMin: 20,
+  randomMax: 20
 })
 
 function copyDefaults() {
@@ -61,51 +60,42 @@ function outputNumber(value, label) {
   return number
 }
 
-function validateSettings(input) {
-  if (!input || typeof input !== 'object' || !Array.isArray(input.groups) || input.groups.length !== 4) {
-    throw new Error('4つの金額グループ設定が必要です。')
+function migrateLegacySettings(input) {
+  if (!input || typeof input !== 'object' || !Array.isArray(input.groups)) return input
+  const group = input.groups.find(item => item && item.enabled === true) || input.groups.find(Boolean) || {}
+  const amount = String(group.amounts || '').split(',').map(item => item.trim()).find(item => /^\d+$/.test(item) && Number(item) > 0)
+  return {
+    ...input,
+    targetAmount: Number(amount || DEFAULT_SETTINGS.targetAmount),
+    outputMode: group.outputMode || DEFAULT_SETTINGS.outputMode,
+    fixedOutput: group.fixedOutput == null ? DEFAULT_SETTINGS.fixedOutput : group.fixedOutput,
+    randomMin: group.randomMin == null ? DEFAULT_SETTINGS.randomMin : group.randomMin,
+    randomMax: group.randomMax == null ? DEFAULT_SETTINGS.randomMax : group.randomMax
   }
-  const usedAmounts = new Set()
-  let enabledCount = 0
-  const groups = input.groups.map((raw, index) => {
-    if (!raw || typeof raw !== 'object') throw new Error(`グループ${index + 1}の設定が不正です。`)
-    const enabled = raw.enabled === true
-    const amountText = String(raw.amounts || '').trim()
-    const amountParts = amountText ? amountText.split(',').map(item => item.trim()) : []
-    if (enabled && (!amountParts.length || amountParts.some(item => !/^\d+$/.test(item) || Number(item) <= 0))) {
-      throw new Error(`グループ${index + 1}の対象金額は1以上の整数をカンマ区切りで指定してください。`)
-    }
-    const amounts = amountParts.map(Number)
-    if (enabled) {
-      enabledCount += 1
-      for (const amount of amounts) {
-        if (usedAmounts.has(amount)) throw new Error(`対象金額${amount}円が複数の有効グループで重複しています。`)
-        usedAmounts.add(amount)
-      }
-    }
-    const outputMode = raw.outputMode === 'random' ? 'random' : raw.outputMode === 'fixed' ? 'fixed' : null
-    if (!outputMode) throw new Error(`グループ${index + 1}の出力方法が不正です。`)
-    return {
-      enabled,
-      amounts: amountText,
-      outputMode,
-      fixedOutput: outputNumber(raw.fixedOutput, `グループ${index + 1}の固定値`),
-      randomMin: outputNumber(raw.randomMin, `グループ${index + 1}のランダム下限`),
-      randomMax: outputNumber(raw.randomMax, `グループ${index + 1}のランダム上限`)
-    }
-  })
-  if (!enabledCount) throw new Error('少なくとも1つの金額グループをONにしてください。')
-  for (let index = 0; index < groups.length; index += 1) {
-    if (groups[index].randomMin > groups[index].randomMax) {
-      throw new Error(`グループ${index + 1}のランダム下限は上限以下にしてください。`)
-    }
+}
+
+function validateSettings(rawInput) {
+  const input = migrateLegacySettings(rawInput)
+  if (!input || typeof input !== 'object') throw new Error('設定が不正です。')
+  const targetAmount = Number(input.targetAmount)
+  if (!Number.isSafeInteger(targetAmount) || targetAmount <= 0) {
+    throw new Error('びりびり対象金額は1以上の整数で指定してください。')
   }
+  const outputMode = input.outputMode === 'random' ? 'random' : input.outputMode === 'fixed' ? 'fixed' : null
+  if (!outputMode) throw new Error('出力方法が不正です。')
+  const randomMin = outputNumber(input.randomMin, 'ランダム下限')
+  const randomMax = outputNumber(input.randomMax, 'ランダム上限')
+  if (randomMin > randomMax) throw new Error('ランダム下限は上限以下にしてください。')
   return {
     pavlokEnabled: input.pavlokEnabled === true,
     delaySeconds: finiteNumber(input.delaySeconds, '検出後の待機秒数', 0, 86400),
     cooldownSeconds: finiteNumber(input.cooldownSeconds, 'クールダウン秒数', 0, 86400),
     ignoreInitialHistory: input.ignoreInitialHistory !== false,
-    groups
+    targetAmount,
+    outputMode,
+    fixedOutput: outputNumber(input.fixedOutput, '固定出力'),
+    randomMin,
+    randomMax
   }
 }
 
@@ -244,10 +234,6 @@ const plugin = {
     return this.rememberBounded(this.handledIds, this.handledOrder, id, MAX_RECENT_COMMENTS)
   },
 
-  groupForAmount(amount) {
-    return this.settings.groups.find(group => group.enabled && group.amounts.split(',').map(Number).includes(amount)) || null
-  },
-
   handleSuperChat(event) {
     if (!this.markHandled(event.id)) return
     this.record('INFO', `[SUPERCHAT] ${event.author} ${event.paidText} / ${event.currency}`)
@@ -259,8 +245,7 @@ const plugin = {
       this.record('INFO', '[SKIP] 整数円でないため対象外')
       return
     }
-    const group = this.groupForAmount(event.price)
-    if (!group) {
+    if (event.price !== this.settings.targetAmount) {
       this.record('INFO', `[SKIP] ${event.paidText}は発火対象外`)
       return
     }
@@ -268,8 +253,6 @@ const plugin = {
     this.queue.push({
       number: this.jobNumber,
       event,
-      groupNumber: this.settings.groups.indexOf(group) + 1,
-      group,
       readyAt: Date.now() + this.settings.delaySeconds * 1000
     })
     this.record('INFO', `[QUEUE] #${this.jobNumber} ${event.paidText} 予約 (delay=${this.settings.delaySeconds}s)`)
@@ -287,9 +270,34 @@ const plugin = {
     return this.monitoring && this.generation === generation
   },
 
-  selectOutput(group) {
-    if (group.outputMode === 'fixed') return group.fixedOutput
-    return Math.floor(Math.random() * (group.randomMax - group.randomMin + 1)) + group.randomMin
+  selectOutput() {
+    if (this.settings.outputMode === 'fixed') return this.settings.fixedOutput
+    return Math.floor(Math.random() * (this.settings.randomMax - this.settings.randomMin + 1)) + this.settings.randomMin
+  },
+
+  drawLottery() {
+    const slot = Math.floor(Math.random() * 6) + 1
+    if (slot === 1) return { slot, name: 'あたり', stimulusCount: 1 }
+    if (slot === 2) return { slot, name: '確変', stimulusCount: 2 }
+    return { slot, name: 'はずれ', stimulusCount: 0 }
+  },
+
+  async runLotteryStimuli(job, count, output, generation) {
+    for (let index = 1; index <= count; index += 1) {
+      const cooldownAt = this.lastAttemptAt == null ? 0 : this.lastAttemptAt + this.settings.cooldownSeconds * 1000
+      const wait = cooldownAt - Date.now()
+      if (wait > 0 && !(await this.waitWhileRunning(wait, generation))) return false
+      if (!this.monitoring || this.generation !== generation) return false
+      this.lastAttemptAt = Date.now()
+      const sequence = count > 1 ? ` ${index}/${count}` : ''
+      if (!this.settings.pavlokEnabled) {
+        this.record('INFO', `[DRY-RUN] #${job.number} 電撃${sequence} output=${output}（Pavlokには送信していません）`)
+        continue
+      }
+      const result = await this.sendStimulus(job, output, index, count)
+      if (!result.ok) return false
+    }
+    return true
   },
 
   async processQueue() {
@@ -299,20 +307,17 @@ const plugin = {
     try {
       while (this.monitoring && this.generation === generation && this.queue.length) {
         const job = this.queue[0]
-        const cooldownAt = this.lastAttemptAt == null ? 0 : this.lastAttemptAt + this.settings.cooldownSeconds * 1000
-        const wait = Math.max(job.readyAt, cooldownAt) - Date.now()
+        const wait = job.readyAt - Date.now()
         if (wait > 0 && !(await this.waitWhileRunning(wait, generation))) return
         if (!this.monitoring || this.generation !== generation) return
         this.queue.shift()
-        const output = this.selectOutput(job.group)
-        this.record('INFO', `[MATCH] #${job.number} グループ${job.groupNumber} / ${job.event.price}円`)
-        this.record('INFO', `[OUTPUT] #${job.number} ${job.group.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
-        this.lastAttemptAt = Date.now()
-        if (!this.settings.pavlokEnabled) {
-          this.record('INFO', `[DRY-RUN] #${job.number} 電撃 output=${output}（Pavlokには送信していません）`)
-          continue
-        }
-        await this.sendStimulus(job, output)
+        const lottery = this.drawLottery()
+        this.record('INFO', `[MATCH] #${job.number} ${job.event.price}円`)
+        this.record('INFO', `[LOTTERY] #${job.number} ${lottery.slot}/6 ${lottery.name}${lottery.stimulusCount ? `（電撃${lottery.stimulusCount}回）` : '（電撃なし）'}`)
+        if (!lottery.stimulusCount) continue
+        const output = this.selectOutput()
+        this.record('INFO', `[OUTPUT] #${job.number} ${this.settings.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
+        await this.runLotteryStimuli(job, lottery.stimulusCount, output, generation)
       }
     } finally {
       this.processing = false
@@ -379,8 +384,9 @@ const plugin = {
     return true
   },
 
-  async sendStimulus(job, output) {
-    this.record('INFO', `[PAVLOK] #${job.number} 電撃 output=${output} 送信`)
+  async sendStimulus(job, output, sequence = 1, total = 1) {
+    const label = total > 1 ? ` ${sequence}/${total}` : ''
+    this.record('INFO', `[PAVLOK] #${job.number} 電撃${label} output=${output} 送信`)
     let response
     try {
       response = await this.fetchWithTimeout(PAVLOK_STIMULUS_URL, {

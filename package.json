@@ -1,6 +1,6 @@
 {
   "name": "pavlok-onecomme-plugin",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Pavlok controller for YouTube Super Chats received by OneComme",
   "main": "plugin.js",
   "author": "kaz",

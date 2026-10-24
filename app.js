@@ -27,63 +27,17 @@ function showMessage(text, type = 'success') {
   element.className = type
 }
 
-function makeInput(type, value, className) {
-  const input = document.createElement('input')
-  input.type = type
-  input.value = value
-  input.className = `setting-input ${className}`
-  if (type === 'number') {
-    input.min = '1'
-    input.max = '100'
-    input.step = '1'
-  }
-  return input
-}
-
-function renderGroups(groups) {
-  const body = byId('group-rows')
-  body.replaceChildren()
-  groups.forEach((group, index) => {
-    const row = document.createElement('tr')
-    row.dataset.group = String(index)
-    const enabledCell = document.createElement('td')
-    const enabled = document.createElement('input')
-    enabled.type = 'checkbox'
-    enabled.checked = group.enabled
-    enabled.className = 'setting-input group-enabled'
-    enabled.setAttribute('aria-label', `グループ${index + 1}を使用`)
-    enabledCell.append(enabled)
-    const amountCell = document.createElement('td')
-    amountCell.append(makeInput('text', group.amounts, 'group-amounts'))
-    const modeCell = document.createElement('td')
-    const mode = document.createElement('select')
-    mode.className = 'setting-input group-mode'
-    ;[['fixed', '固定'], ['random', 'ランダム']].forEach(([value, label]) => {
-      const option = document.createElement('option')
-      option.value = value
-      option.textContent = label
-      option.selected = group.outputMode === value
-      mode.append(option)
-    })
-    modeCell.append(mode)
-    const fixedCell = document.createElement('td')
-    fixedCell.append(makeInput('number', group.fixedOutput, 'group-fixed'))
-    const minCell = document.createElement('td')
-    minCell.append(makeInput('number', group.randomMin, 'group-min'))
-    const maxCell = document.createElement('td')
-    maxCell.append(makeInput('number', group.randomMax, 'group-max'))
-    row.append(enabledCell, amountCell, modeCell, fixedCell, minCell, maxCell)
-    body.append(row)
-  })
-}
-
 function renderSettings(state) {
   const settings = state.settings
   byId('pavlok-enabled').checked = settings.pavlokEnabled
   byId('ignore-initial').checked = settings.ignoreInitialHistory
   byId('delay-seconds').value = settings.delaySeconds
   byId('cooldown-seconds').value = settings.cooldownSeconds
-  renderGroups(settings.groups)
+  byId('target-amount').value = settings.targetAmount
+  byId('output-mode').value = settings.outputMode
+  byId('fixed-output').value = settings.fixedOutput
+  byId('random-min').value = settings.randomMin
+  byId('random-max').value = settings.randomMax
   byId('token-state').textContent = state.tokenConfigured
     ? 'PavlokトークンはOS暗号化で保存済みです。変更しない場合は入力不要です。'
     : state.encryptionAvailable
@@ -111,20 +65,16 @@ function renderRuntime(state) {
 }
 
 function collectSettings() {
-  const groups = [...document.querySelectorAll('#group-rows tr')].map(row => ({
-    enabled: row.querySelector('.group-enabled').checked,
-    amounts: row.querySelector('.group-amounts').value.trim(),
-    outputMode: row.querySelector('.group-mode').value,
-    fixedOutput: Number(row.querySelector('.group-fixed').value),
-    randomMin: Number(row.querySelector('.group-min').value),
-    randomMax: Number(row.querySelector('.group-max').value)
-  }))
   return {
     pavlokEnabled: byId('pavlok-enabled').checked,
     ignoreInitialHistory: byId('ignore-initial').checked,
     delaySeconds: Number(byId('delay-seconds').value),
     cooldownSeconds: Number(byId('cooldown-seconds').value),
-    groups
+    targetAmount: Number(byId('target-amount').value),
+    outputMode: byId('output-mode').value,
+    fixedOutput: Number(byId('fixed-output').value),
+    randomMin: Number(byId('random-min').value),
+    randomMax: Number(byId('random-max').value)
   }
 }
 

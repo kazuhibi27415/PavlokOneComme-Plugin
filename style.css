@@ -20,11 +20,12 @@ label.check { flex-direction: row; align-items: center; font-weight: 500; }
 input, select, button { font: inherit; }
 input[type="text"], input[type="password"], input[type="number"], select { width: 100%; padding: 8px 9px; border: 1px solid #aeb8c5; border-radius: 6px; background: #fff; color: #17202b; }
 input:disabled, select:disabled { opacity: .65; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; min-width: 820px; }
-th, td { padding: 7px; border-bottom: 1px solid #e0e4ea; text-align: left; }
-th { color: #556274; font-size: 13px; }
-td:first-child { width: 58px; text-align: center; }
+.lottery-slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 14px 0; }
+.lottery-slots span { padding: 10px 6px; border: 1px solid #d5dbe3; border-radius: 7px; background: #f3f5f8; text-align: center; font-size: 13px; font-weight: 700; }
+.lottery-slots .hit { border-color: #e1a82b; background: #fff4d5; color: #744d00; }
+.lottery-slots .bonus { border-color: #b254c4; background: #f8e7fc; color: #6d237b; }
+.lottery-slots small { font-weight: 500; }
+.lottery-settings { margin-top: 12px; }
 .actions { display: flex; gap: 9px; align-items: center; margin-top: 15px; }
 .manual-row { display: flex; gap: 12px; align-items: flex-end; }
 .manual-row label { width: min(240px, 100%); }
@@ -46,4 +47,4 @@ button:disabled { cursor: default; opacity: .5; }
 #logs { min-height: 190px; max-height: 360px; margin: 0; padding: 12px; overflow: auto; border-radius: 7px; background: #111820; color: #e6edf3; white-space: pre-wrap; word-break: break-word; font: 13px/1.55 Consolas, "Yu Gothic UI", monospace; user-select: text; }
 footer { margin: 16px 0 30px; color: #667386; font-size: 12px; }
 footer a { color: #276aa3; }
-@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } header { flex-direction: column; } .manual-row { align-items: stretch; flex-direction: column; } }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } header { flex-direction: column; } .lottery-slots { grid-template-columns: repeat(3, 1fr); } .manual-row { align-items: stretch; flex-direction: column; } }

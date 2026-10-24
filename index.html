@@ -10,8 +10,8 @@
   <main class="container">
     <header>
       <div>
-        <h1>Pavlok Super Chat Controller <small>v1.0.1</small></h1>
-        <p>わんコメが取得したYouTube Super Chatを、金額完全一致でPavlokの電撃へ送ります。</p>
+        <h1>Pavlok Super Chat Controller <small>v1.1.0</small></h1>
+        <p>対象金額のYouTube Super Chatを6枠で抽選し、結果に応じてPavlokへ電撃を送ります。</p>
       </div>
       <span id="monitor-badge" class="badge stopped">停止中</span>
     </header>
@@ -36,15 +36,37 @@
     </section>
 
     <section class="panel">
-      <h2>金額グループ</h2>
-      <p class="hint">使わないグループはOFFにします。対象金額は整数円をカンマで区切り、別グループと重複させないでください。</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>使用</th><th>対象金額（円）</th><th>出力方法</th><th>固定値</th><th>ランダム下限</th><th>ランダム上限</th></tr></thead>
-          <tbody id="group-rows"></tbody>
-        </table>
+      <h2>びりびり設定</h2>
+      <p class="hint">対象金額は1つだけです。完全一致したSuper Chatごとに6枠から均等に抽選します。</p>
+      <div class="lottery-slots" aria-label="抽選枠">
+        <span class="hit">あたり<br><small>電撃1回</small></span>
+        <span class="bonus">確変<br><small>電撃2回</small></span>
+        <span>はずれ</span>
+        <span>はずれ</span>
+        <span>はずれ</span>
+        <span>はずれ</span>
       </div>
-      <p class="hint">固定・ランダムは全グループで選択できます。出力は1～100です。</p>
+      <div class="grid lottery-settings">
+        <label>びりびり対象金額（円）
+          <input id="target-amount" class="setting-input" type="number" min="1" step="1">
+        </label>
+        <label>出力方法
+          <select id="output-mode" class="setting-input">
+            <option value="fixed">固定</option>
+            <option value="random">ランダム</option>
+          </select>
+        </label>
+        <label>固定出力（1～100）
+          <input id="fixed-output" class="setting-input" type="number" min="1" max="100" step="1">
+        </label>
+        <label>ランダム下限（1～100）
+          <input id="random-min" class="setting-input" type="number" min="1" max="100" step="1">
+        </label>
+        <label>ランダム上限（1～100）
+          <input id="random-max" class="setting-input" type="number" min="1" max="100" step="1">
+        </label>
+      </div>
+      <p class="hint">確変の2回は共通クールダウン秒数を挟みます。送信に失敗した場合、残りの電撃は送信しません。</p>
     </section>
 
     <section class="panel">

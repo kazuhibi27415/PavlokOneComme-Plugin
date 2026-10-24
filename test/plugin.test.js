@@ -14,6 +14,7 @@ const originalConsole = {
   error: console.error
 }
 const originalLoadInitialToken = plugin.loadInitialToken
+const originalDrawLottery = plugin.drawLottery
 const originalFetch = global.fetch
 
 class MemoryStore {
@@ -54,11 +55,13 @@ function comment(id, options = {}) {
   }
 }
 
-function initialize(initialComments = []) {
+function initialize(initialComments = [], storedSettings = null) {
   fs.mkdirSync(TEST_ROOT, { recursive: true })
   const dir = fs.mkdtempSync(path.join(TEST_ROOT, 'case-'))
   const store = new MemoryStore()
+  if (storedSettings) store.set('settings', storedSettings)
   plugin.loadInitialToken = originalLoadInitialToken
+  plugin.drawLottery = originalDrawLottery
   global.fetch = originalFetch
   plugin.init({ dir, store }, { comments: initialComments })
   return { dir, store }
@@ -96,6 +99,7 @@ test.before(() => {
 test.after(() => {
   if (plugin.monitoring || plugin.queue.length) plugin.stopMonitoring()
   plugin.loadInitialToken = originalLoadInitialToken
+  plugin.drawLottery = originalDrawLottery
   global.fetch = originalFetch
   console.info = originalConsole.info
   console.warn = originalConsole.warn
@@ -120,36 +124,62 @@ test('Pavlok OneComme plugin', async t => {
     stop()
   })
 
-  await t.test('JPY整数円の完全一致だけをFIFOでDRY-RUNする', async () => {
+  await t.test('6枠はあたり1枠・確変1枠・はずれ4枠になる', () => {
+    const originalRandom = Math.random
+    try {
+      const results = []
+      for (let index = 0; index < 6; index += 1) {
+        Math.random = () => (index + 0.5) / 6
+        results.push(originalDrawLottery.call(plugin))
+      }
+      assert.deepEqual(results.map(result => result.name), ['あたり', '確変', 'はずれ', 'はずれ', 'はずれ', 'はずれ'])
+      assert.deepEqual(results.map(result => result.stimulusCount), [1, 2, 0, 0, 0, 0])
+    } finally {
+      Math.random = originalRandom
+    }
+  })
+
+  await t.test('単一金額の完全一致だけをFIFOで6枠抽選する', async () => {
     initialize()
     await save(settings())
+    const outcomes = [
+      { slot: 1, name: 'あたり', stimulusCount: 1 },
+      { slot: 2, name: '確変', stimulusCount: 2 },
+      { slot: 3, name: 'はずれ', stimulusCount: 0 }
+    ]
+    plugin.drawLottery = () => outcomes.shift()
     await start()
     plugin.subscribe('comments', [
-      comment('match-500', { price: 500 }),
+      comment('hit-500', { price: 500 }),
       comment('fraction', { price: 500.5 }),
-      comment('match-1000', { price: 1000 }),
-      comment('unmatched', { price: 999 }),
+      comment('bonus-500', { price: 500 }),
+      comment('unmatched', { price: 1000 }),
       comment('foreign', { price: 500, currency: 'USD' }),
-      comment('duplicate', { price: 500 }),
-      comment('duplicate', { price: 500 })
+      comment('miss-500', { price: 500 }),
+      comment('miss-500', { price: 500 })
     ])
+    await waitUntil(() => plugin.logs.filter(line => line.includes('[LOTTERY]')).length === 3)
     await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 3)
     const matches = plugin.logs.filter(line => line.includes('[MATCH]'))
-    assert(matches[0].includes('グループ1 / 500円'))
-    assert(matches[1].includes('グループ2 / 1000円'))
-    assert(matches[2].includes('グループ1 / 500円'))
+    assert.equal(matches.length, 3)
+    assert(matches.every(line => line.includes('500円')))
+    const lotteries = plugin.logs.filter(line => line.includes('[LOTTERY]'))
+    assert(lotteries[0].includes('1/6 あたり（電撃1回）'))
+    assert(lotteries[1].includes('2/6 確変（電撃2回）'))
+    assert(lotteries[2].includes('3/6 はずれ（電撃なし）'))
     assert.equal(plugin.logs.filter(line => line.includes('[DRY-RUN]')).length, 3)
     stop()
   })
 
-  await t.test('DRY-RUNでも共通クールダウンを適用する', async () => {
+  await t.test('確変の電撃2回に共通クールダウンを適用する', async () => {
     initialize()
     await save(settings({ cooldownSeconds: 0.08 }))
+    plugin.drawLottery = () => ({ slot: 2, name: '確変', stimulusCount: 2 })
     await start()
     const startedAt = Date.now()
-    plugin.subscribe('comments', [comment('cooldown-1'), comment('cooldown-2')])
+    plugin.subscribe('comments', [comment('bonus-cooldown')])
     await waitUntil(() => plugin.logs.filter(line => line.includes('[DRY-RUN]')).length === 2)
-    assert(Date.now() - startedAt >= 65, '2件目がクールダウン前に実行されました。')
+    assert(Date.now() - startedAt >= 65, '確変の2回目がクールダウン前に実行されました。')
     stop()
   })
 
@@ -193,7 +223,29 @@ test('Pavlok OneComme plugin', async t => {
     }
   })
 
-  await t.test('401ではtokenだけ更新し失敗した電撃を再送しない', async () => {
+  await t.test('確変はPavlokへ電撃を2回送信する', async () => {
+    initialize()
+    let stimulusCount = 0
+    plugin.loadInitialToken = () => 'initial-token'
+    global.fetch = async url => {
+      if (url.includes('/api/v5/user/')) {
+        return { status: 200, json: async () => ({ user: { token: 'runtime-token' } }) }
+      }
+      stimulusCount += 1
+      return { status: 200, json: async () => ({}) }
+    }
+    const enabled = settings({ pavlokEnabled: true })
+    plugin.store.set('settings', enabled)
+    plugin.settings = enabled
+    plugin.drawLottery = () => ({ slot: 2, name: '確変', stimulusCount: 2 })
+    await start()
+    plugin.subscribe('comments', [comment('bonus-live')])
+    await waitUntil(() => stimulusCount === 2)
+    assert.equal(stimulusCount, 2)
+    stop()
+  })
+
+  await t.test('確変の1回目が401ならtokenだけ更新して残りを送信しない', async () => {
     initialize()
     const calls = []
     let userTokenNumber = 0
@@ -209,6 +261,7 @@ test('Pavlok OneComme plugin', async t => {
     const enabled = settings({ pavlokEnabled: true })
     plugin.store.set('settings', enabled)
     plugin.settings = enabled
+    plugin.drawLottery = () => ({ slot: 2, name: '確変', stimulusCount: 2 })
     await start()
     plugin.subscribe('comments', [comment('unauthorized')])
     await waitUntil(() => plugin.logs.some(line => line.includes('token更新済み')))
@@ -241,12 +294,33 @@ test('Pavlok OneComme plugin', async t => {
     assert.equal(stimulusCount, 1)
   })
 
-  await t.test('有効グループ間の重複金額を保存しない', async () => {
+  await t.test('びりびり対象金額は1以上の整数だけを受け付ける', async () => {
     initialize()
-    const invalid = settings()
-    invalid.groups[1].amounts = '500'
-    const result = await plugin.request({ method: 'PUT', body: { settings: invalid } })
-    assert.equal(result.code, 400)
-    assert.match(result.response.error, /複数の有効グループで重複/)
+    for (const targetAmount of [0, 1.5, 'abc']) {
+      const result = await plugin.request({ method: 'PUT', body: { settings: settings({ targetAmount }) } })
+      assert.equal(result.code, 400)
+      assert.match(result.response.error, /1以上の整数/)
+    }
+  })
+
+  await t.test('旧金額グループ設定を単一金額へ移行する', () => {
+    const legacySettings = {
+      pavlokEnabled: false,
+      delaySeconds: 4,
+      cooldownSeconds: 5,
+      ignoreInitialHistory: true,
+      groups: [
+        { enabled: false, amounts: '200', outputMode: 'fixed', fixedOutput: 10, randomMin: 10, randomMax: 10 },
+        { enabled: true, amounts: '700,900', outputMode: 'random', fixedOutput: 30, randomMin: 25, randomMax: 35 }
+      ]
+    }
+    initialize([], legacySettings)
+    assert.equal(plugin.settings.targetAmount, 700)
+    assert.equal(plugin.settings.outputMode, 'random')
+    assert.equal(plugin.settings.fixedOutput, 30)
+    assert.equal(plugin.settings.randomMin, 25)
+    assert.equal(plugin.settings.randomMax, 35)
+    assert.equal(plugin.settings.delaySeconds, 4)
+    assert.equal(plugin.settings.cooldownSeconds, 5)
   })
 })
