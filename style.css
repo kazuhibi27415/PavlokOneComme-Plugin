@@ -26,6 +26,7 @@ input:disabled, select:disabled { opacity: .65; }
 .lottery-slots .bonus { border-color: #b254c4; background: #f8e7fc; color: #6d237b; }
 .lottery-slots small { font-weight: 500; }
 .lottery-settings { margin-top: 12px; }
+.wordparty-settings { margin-top: 12px; }
 .actions { display: flex; gap: 9px; align-items: center; margin-top: 15px; }
 .manual-row { display: flex; gap: 12px; align-items: flex-end; }
 .manual-row label { width: min(240px, 100%); }

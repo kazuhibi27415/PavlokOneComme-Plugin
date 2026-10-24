@@ -30,6 +30,13 @@ function showMessage(text, type = 'success') {
 function renderSettings(state) {
   const settings = state.settings
   byId('pavlok-enabled').checked = settings.pavlokEnabled
+  byId('wordparty-enabled').checked = settings.wordPartyEnabled
+  byId('wordparty-hit-id').value = settings.wordPartyHitId
+  byId('wordparty-bonus-id').value = settings.wordPartyBonusId
+  byId('wordparty-miss-1-id').value = settings.wordPartyMiss1Id
+  byId('wordparty-miss-2-id').value = settings.wordPartyMiss2Id
+  byId('wordparty-miss-3-id').value = settings.wordPartyMiss3Id
+  byId('wordparty-miss-4-id').value = settings.wordPartyMiss4Id
   byId('ignore-initial').checked = settings.ignoreInitialHistory
   byId('delay-seconds').value = settings.delaySeconds
   byId('cooldown-seconds').value = settings.cooldownSeconds
@@ -67,6 +74,13 @@ function renderRuntime(state) {
 function collectSettings() {
   return {
     pavlokEnabled: byId('pavlok-enabled').checked,
+    wordPartyEnabled: byId('wordparty-enabled').checked,
+    wordPartyHitId: byId('wordparty-hit-id').value.trim(),
+    wordPartyBonusId: byId('wordparty-bonus-id').value.trim(),
+    wordPartyMiss1Id: byId('wordparty-miss-1-id').value.trim(),
+    wordPartyMiss2Id: byId('wordparty-miss-2-id').value.trim(),
+    wordPartyMiss3Id: byId('wordparty-miss-3-id').value.trim(),
+    wordPartyMiss4Id: byId('wordparty-miss-4-id').value.trim(),
     ignoreInitialHistory: byId('ignore-initial').checked,
     delaySeconds: Number(byId('delay-seconds').value),
     cooldownSeconds: Number(byId('cooldown-seconds').value),

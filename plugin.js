@@ -10,10 +10,11 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.1.0'
+const VERSION = '1.2.0'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
+const WORD_PARTY_API_BASE = 'http://localhost:11180/api/wordparty/'
 const MAX_RECENT_COMMENTS = 10000
 const MAX_RECENT_SUPERCHATS = 5000
 const MAX_LOG_LINES = 500
@@ -21,6 +22,13 @@ const MAX_LOG_BYTES = 1024 * 1024
 
 const DEFAULT_SETTINGS = Object.freeze({
   pavlokEnabled: false,
+  wordPartyEnabled: false,
+  wordPartyHitId: '',
+  wordPartyBonusId: '',
+  wordPartyMiss1Id: '',
+  wordPartyMiss2Id: '',
+  wordPartyMiss3Id: '',
+  wordPartyMiss4Id: '',
   delaySeconds: 3,
   cooldownSeconds: 3,
   ignoreInitialHistory: true,
@@ -60,6 +68,18 @@ function outputNumber(value, label) {
   return number
 }
 
+function wordPartyId(value, label, required) {
+  const id = String(value == null ? '' : value).trim()
+  if (!id) {
+    if (required) throw new Error(`WordParty連携をONにするには${label}を入力してください。`)
+    return ''
+  }
+  if (!/^[\x21-\x7e]{8}$/.test(id)) {
+    throw new Error(`${label}は8文字の半角英数記号で指定してください。`)
+  }
+  return id
+}
+
 function migrateLegacySettings(input) {
   if (!input || typeof input !== 'object' || !Array.isArray(input.groups)) return input
   const group = input.groups.find(item => item && item.enabled === true) || input.groups.find(Boolean) || {}
@@ -86,8 +106,26 @@ function validateSettings(rawInput) {
   const randomMin = outputNumber(input.randomMin, 'ランダム下限')
   const randomMax = outputNumber(input.randomMax, 'ランダム上限')
   if (randomMin > randomMax) throw new Error('ランダム下限は上限以下にしてください。')
+  const wordPartyEnabled = input.wordPartyEnabled === true
+  const wordPartyHitId = wordPartyId(input.wordPartyHitId, 'あたり演出ID', wordPartyEnabled)
+  const wordPartyBonusId = wordPartyId(input.wordPartyBonusId, '確変演出ID', wordPartyEnabled)
+  const wordPartyMiss1Id = wordPartyId(input.wordPartyMiss1Id, 'はずれ1演出ID', wordPartyEnabled)
+  const wordPartyMiss2Id = wordPartyId(input.wordPartyMiss2Id, 'はずれ2演出ID', wordPartyEnabled)
+  const wordPartyMiss3Id = wordPartyId(input.wordPartyMiss3Id, 'はずれ3演出ID', wordPartyEnabled)
+  const wordPartyMiss4Id = wordPartyId(input.wordPartyMiss4Id, 'はずれ4演出ID', wordPartyEnabled)
+  const wordPartyIds = [wordPartyHitId, wordPartyBonusId, wordPartyMiss1Id, wordPartyMiss2Id, wordPartyMiss3Id, wordPartyMiss4Id]
+  if (wordPartyEnabled && new Set(wordPartyIds).size !== wordPartyIds.length) {
+    throw new Error('WordPartyの6枠には別々の演出IDを指定してください。')
+  }
   return {
     pavlokEnabled: input.pavlokEnabled === true,
+    wordPartyEnabled,
+    wordPartyHitId,
+    wordPartyBonusId,
+    wordPartyMiss1Id,
+    wordPartyMiss2Id,
+    wordPartyMiss3Id,
+    wordPartyMiss4Id,
     delaySeconds: finiteNumber(input.delaySeconds, '検出後の待機秒数', 0, 86400),
     cooldownSeconds: finiteNumber(input.cooldownSeconds, 'クールダウン秒数', 0, 86400),
     ignoreInitialHistory: input.ignoreInitialHistory !== false,
@@ -282,6 +320,42 @@ const plugin = {
     return { slot, name: 'はずれ', stimulusCount: 0 }
   },
 
+  async triggerWordParty(job, lottery) {
+    if (!this.settings.wordPartyEnabled) return true
+    const effects = [
+      null,
+      { name: 'あたり', id: this.settings.wordPartyHitId },
+      { name: '確変', id: this.settings.wordPartyBonusId },
+      { name: 'はずれ1', id: this.settings.wordPartyMiss1Id },
+      { name: 'はずれ2', id: this.settings.wordPartyMiss2Id },
+      { name: 'はずれ3', id: this.settings.wordPartyMiss3Id },
+      { name: 'はずれ4', id: this.settings.wordPartyMiss4Id }
+    ]
+    const effect = effects[lottery.slot]
+    if (!effect || !effect.id) {
+      this.record('WARN', `[WORDPARTY] #${job.number} ${lottery.slot}/6の演出IDがありません。`)
+      return false
+    }
+    this.record('INFO', `[WORDPARTY] #${job.number} ${effect.name} 演出実行`)
+    let response
+    try {
+      response = await this.fetchWithTimeout(`${WORD_PARTY_API_BASE}${encodeURIComponent(effect.id)}`, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        redirect: 'manual'
+      }, 5000)
+    } catch (_) {
+      this.record('WARN', `[WORDPARTY] #${job.number} ${effect.name} 通信失敗。再実行しません。`)
+      return false
+    }
+    if (response.status >= 200 && response.status < 300) {
+      this.record('INFO', `[WORDPARTY] #${job.number} ${effect.name} OK (HTTP ${response.status})`)
+      return true
+    }
+    this.record('WARN', `[WORDPARTY] #${job.number} ${effect.name} ERROR (HTTP ${response.status})。再実行しません。`)
+    return false
+  },
+
   async runLotteryStimuli(job, count, output, generation) {
     for (let index = 1; index <= count; index += 1) {
       const cooldownAt = this.lastAttemptAt == null ? 0 : this.lastAttemptAt + this.settings.cooldownSeconds * 1000
@@ -314,10 +388,17 @@ const plugin = {
         const lottery = this.drawLottery()
         this.record('INFO', `[MATCH] #${job.number} ${job.event.price}円`)
         this.record('INFO', `[LOTTERY] #${job.number} ${lottery.slot}/6 ${lottery.name}${lottery.stimulusCount ? `（電撃${lottery.stimulusCount}回）` : '（電撃なし）'}`)
-        if (!lottery.stimulusCount) continue
+        const wordPartyPromise = this.triggerWordParty(job, lottery)
+        if (!lottery.stimulusCount) {
+          await wordPartyPromise
+          continue
+        }
         const output = this.selectOutput()
         this.record('INFO', `[OUTPUT] #${job.number} ${this.settings.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
-        await this.runLotteryStimuli(job, lottery.stimulusCount, output, generation)
+        await Promise.all([
+          wordPartyPromise,
+          this.runLotteryStimuli(job, lottery.stimulusCount, output, generation)
+        ])
       }
     } finally {
       this.processing = false
@@ -434,7 +515,7 @@ const plugin = {
     } else {
       pending.forEach(event => this.handleSuperChat(event))
     }
-    this.record('INFO', `[START] 監視開始 / ${this.settings.pavlokEnabled ? '実送信ON' : 'DRY-RUN'}`)
+    this.record('INFO', `[START] 監視開始 / Pavlok:${this.settings.pavlokEnabled ? '実送信ON' : 'DRY-RUN'} / WordParty:${this.settings.wordPartyEnabled ? 'ON' : 'OFF'}`)
   },
 
   stopMonitoring() {

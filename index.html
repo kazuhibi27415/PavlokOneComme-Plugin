@@ -10,8 +10,8 @@
   <main class="container">
     <header>
       <div>
-        <h1>Pavlok Super Chat Controller <small>v1.1.0</small></h1>
-        <p>対象金額のYouTube Super Chatを6枠で抽選し、結果に応じてPavlokへ電撃を送ります。</p>
+        <h1>Pavlok Super Chat Controller <small>v1.2.0</small></h1>
+        <p>対象金額のYouTube Super Chatを6枠で抽選し、Pavlokの電撃とWordParty演出を実行します。</p>
       </div>
       <span id="monitor-badge" class="badge stopped">停止中</span>
     </header>
@@ -36,15 +36,42 @@
     </section>
 
     <section class="panel">
+      <h2>WordParty連携</h2>
+      <p class="hint">WordPartyの演出編集画面上部に表示される8文字のIDを、6つの抽選枠ごとに設定します。</p>
+      <label class="check"><input id="wordparty-enabled" class="setting-input" type="checkbox"> 抽選結果に応じてWordParty演出を実行</label>
+      <div class="grid wordparty-settings">
+        <label>あたり演出ID（1/6）
+          <input id="wordparty-hit-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
+        </label>
+        <label>確変演出ID（2/6）
+          <input id="wordparty-bonus-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
+        </label>
+        <label>はずれ1演出ID（3/6）
+          <input id="wordparty-miss-1-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
+        </label>
+        <label>はずれ2演出ID（4/6）
+          <input id="wordparty-miss-2-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
+        </label>
+        <label>はずれ3演出ID（5/6）
+          <input id="wordparty-miss-3-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
+        </label>
+        <label>はずれ4演出ID（6/6）
+          <input id="wordparty-miss-4-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
+        </label>
+      </div>
+      <p class="warning">WordParty連携はPavlokの実機送信設定とは独立しています。連携ONでは、PavlokがDRY-RUNでもWordParty演出を実行します。</p>
+    </section>
+
+    <section class="panel">
       <h2>びりびり設定</h2>
       <p class="hint">対象金額は1つだけです。完全一致したSuper Chatごとに6枠から均等に抽選します。</p>
       <div class="lottery-slots" aria-label="抽選枠">
         <span class="hit">あたり<br><small>電撃1回</small></span>
         <span class="bonus">確変<br><small>電撃2回</small></span>
-        <span>はずれ</span>
-        <span>はずれ</span>
-        <span>はずれ</span>
-        <span>はずれ</span>
+        <span>はずれ1</span>
+        <span>はずれ2</span>
+        <span>はずれ3</span>
+        <span>はずれ4</span>
       </div>
       <div class="grid lottery-settings">
         <label>びりびり対象金額（円）
@@ -86,7 +113,7 @@
       <button id="stop-button" class="stop" type="button" disabled>監視停止</button>
       <span id="queue-state">予約 0件</span>
     </section>
-    <p class="warning">監視停止時は未処理予約を破棄します。送信済みの電撃は取り消せません。</p>
+    <p class="warning">監視停止時は未処理予約を破棄します。送信済みの電撃と実行済みのWordParty演出は取り消せません。</p>
     <p id="message" role="status"></p>
 
     <section class="panel">

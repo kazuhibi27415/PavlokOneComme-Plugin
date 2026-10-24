@@ -132,6 +132,7 @@ test('Pavlok OneComme plugin', async t => {
         Math.random = () => (index + 0.5) / 6
         results.push(originalDrawLottery.call(plugin))
       }
+      assert.deepEqual(results.map(result => result.slot), [1, 2, 3, 4, 5, 6])
       assert.deepEqual(results.map(result => result.name), ['あたり', '確変', 'はずれ', 'はずれ', 'はずれ', 'はずれ'])
       assert.deepEqual(results.map(result => result.stimulusCount), [1, 2, 0, 0, 0, 0])
     } finally {
@@ -168,6 +169,107 @@ test('Pavlok OneComme plugin', async t => {
     assert(lotteries[1].includes('2/6 確変（電撃2回）'))
     assert(lotteries[2].includes('3/6 はずれ（電撃なし）'))
     assert.equal(plugin.logs.filter(line => line.includes('[DRY-RUN]')).length, 3)
+    stop()
+  })
+
+  await t.test('6つの抽選枠ごとに対応するWordParty演出を1回実行する', async () => {
+    initialize()
+    const calls = []
+    global.fetch = async (url, options) => {
+      calls.push({ url, options })
+      return { status: 204 }
+    }
+    await save(settings({
+      wordPartyEnabled: true,
+      wordPartyHitId: 'HIT00001',
+      wordPartyBonusId: 'BONUS001',
+      wordPartyMiss1Id: 'MISS0001',
+      wordPartyMiss2Id: 'MISS0002',
+      wordPartyMiss3Id: 'MISS0003',
+      wordPartyMiss4Id: 'MISS0004'
+    }))
+    const outcomes = [
+      { slot: 1, name: 'あたり', stimulusCount: 1 },
+      { slot: 2, name: '確変', stimulusCount: 2 },
+      { slot: 3, name: 'はずれ', stimulusCount: 0 },
+      { slot: 4, name: 'はずれ', stimulusCount: 0 },
+      { slot: 5, name: 'はずれ', stimulusCount: 0 },
+      { slot: 6, name: 'はずれ', stimulusCount: 0 }
+    ]
+    plugin.drawLottery = () => outcomes.shift()
+    await start()
+    plugin.subscribe('comments', [
+      comment('wordparty-hit'),
+      comment('wordparty-bonus'),
+      comment('wordparty-miss-1'),
+      comment('wordparty-miss-2'),
+      comment('wordparty-miss-3'),
+      comment('wordparty-miss-4')
+    ])
+    await waitUntil(() => calls.length === 6)
+    assert.deepEqual(calls.map(call => call.url), [
+      'http://localhost:11180/api/wordparty/HIT00001',
+      'http://localhost:11180/api/wordparty/BONUS001',
+      'http://localhost:11180/api/wordparty/MISS0001',
+      'http://localhost:11180/api/wordparty/MISS0002',
+      'http://localhost:11180/api/wordparty/MISS0003',
+      'http://localhost:11180/api/wordparty/MISS0004'
+    ])
+    assert(calls.every(call => call.options.method === 'POST'))
+    assert.equal(plugin.logs.filter(line => line.includes('[WORDPARTY]') && line.includes('演出実行')).length, 6)
+    stop()
+  })
+
+  await t.test('WordParty連携OFFでは抽選時にWordParty APIへ送信しない', async () => {
+    initialize()
+    let fetchCount = 0
+    global.fetch = async () => {
+      fetchCount += 1
+      throw new Error('WordParty連携OFFでfetchが呼ばれました。')
+    }
+    await save(settings())
+    plugin.drawLottery = () => ({ slot: 3, name: 'はずれ', stimulusCount: 0 })
+    await start()
+    plugin.subscribe('comments', [comment('wordparty-disabled')])
+    await waitUntil(() => plugin.logs.some(line => line.includes('[LOTTERY]')))
+    assert.equal(fetchCount, 0)
+    stop()
+  })
+
+  await t.test('WordPartyのHTTP失敗でもPavlokの電撃を止めず再実行しない', async () => {
+    initialize()
+    let wordPartyCount = 0
+    let stimulusCount = 0
+    plugin.loadInitialToken = () => 'initial-token'
+    global.fetch = async url => {
+      if (url.includes('/api/v5/user/')) {
+        return { status: 200, json: async () => ({ user: { token: 'runtime-token' } }) }
+      }
+      if (url.includes('/api/wordparty/')) {
+        wordPartyCount += 1
+        return { status: 500 }
+      }
+      stimulusCount += 1
+      return { status: 200, json: async () => ({}) }
+    }
+    const enabled = settings({
+      pavlokEnabled: true,
+      wordPartyEnabled: true,
+      wordPartyHitId: 'HIT00001',
+      wordPartyBonusId: 'BONUS001',
+      wordPartyMiss1Id: 'MISS0001',
+      wordPartyMiss2Id: 'MISS0002',
+      wordPartyMiss3Id: 'MISS0003',
+      wordPartyMiss4Id: 'MISS0004'
+    })
+    plugin.store.set('settings', enabled)
+    plugin.settings = enabled
+    plugin.drawLottery = () => ({ slot: 1, name: 'あたり', stimulusCount: 1 })
+    await start()
+    plugin.subscribe('comments', [comment('wordparty-failure')])
+    await waitUntil(() => stimulusCount === 1 && plugin.logs.some(line => line.includes('[WORDPARTY]') && line.includes('HTTP 500')))
+    assert.equal(wordPartyCount, 1)
+    assert.equal(stimulusCount, 1)
     stop()
   })
 
@@ -301,6 +403,49 @@ test('Pavlok OneComme plugin', async t => {
       assert.equal(result.code, 400)
       assert.match(result.response.error, /1以上の整数/)
     }
+  })
+
+  await t.test('WordParty連携ONでは6枠分の8文字演出IDを必須にする', async () => {
+    initialize()
+    const missing = await plugin.request({
+      method: 'PUT',
+      body: {
+        settings: settings({
+          wordPartyEnabled: true,
+          wordPartyHitId: 'HIT00001',
+          wordPartyBonusId: 'BONUS001',
+          wordPartyMiss1Id: 'MISS0001',
+          wordPartyMiss2Id: 'MISS0002',
+          wordPartyMiss3Id: 'MISS0003'
+        })
+      }
+    })
+    assert.equal(missing.code, 400)
+    assert.match(missing.response.error, /はずれ4演出ID/)
+
+    const invalid = await plugin.request({
+      method: 'PUT',
+      body: { settings: settings({ wordPartyMiss1Id: 'short' }) }
+    })
+    assert.equal(invalid.code, 400)
+    assert.match(invalid.response.error, /8文字の半角英数記号/)
+
+    const duplicate = await plugin.request({
+      method: 'PUT',
+      body: {
+        settings: settings({
+          wordPartyEnabled: true,
+          wordPartyHitId: 'SAME0001',
+          wordPartyBonusId: 'SAME0001',
+          wordPartyMiss1Id: 'MISS0001',
+          wordPartyMiss2Id: 'MISS0002',
+          wordPartyMiss3Id: 'MISS0003',
+          wordPartyMiss4Id: 'MISS0004'
+        })
+      }
+    })
+    assert.equal(duplicate.code, 400)
+    assert.match(duplicate.response.error, /別々の演出ID/)
   })
 
   await t.test('旧金額グループ設定を単一金額へ移行する', () => {
