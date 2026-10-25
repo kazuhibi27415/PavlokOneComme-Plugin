@@ -16,6 +16,26 @@ const originalConsole = {
 const originalLoadInitialToken = plugin.loadInitialToken
 const originalDrawLottery = plugin.drawLottery
 const originalFetch = global.fetch
+const DURATION_SETTING_KEYS = [
+  'wordPartyHitDurationSeconds',
+  'wordPartyHit2DurationSeconds',
+  'wordPartyBonusDurationSeconds',
+  'wordPartyMiss1DurationSeconds',
+  'wordPartyMiss2DurationSeconds',
+  'wordPartyMiss3DurationSeconds',
+  'wordPartyMiss4DurationSeconds',
+  'wordPartyMiss5DurationSeconds',
+  'wordPartyMiss6DurationSeconds',
+  'wordPartyMiss7DurationSeconds',
+  'wordPartyMiss8DurationSeconds'
+]
+const DELAY_SETTING_KEYS = [
+  'delaySeconds',
+  'hitDelaySeconds',
+  'hit2DelaySeconds',
+  'bonusFirstDelaySeconds',
+  'bonusSecondDelaySeconds'
+]
 
 class MemoryStore {
   constructor() {
@@ -769,32 +789,12 @@ test('Pavlok OneComme plugin', async t => {
 
   await t.test('最大許容値を保存し出力100をDRY-RUNで実行できる', async () => {
     initialize()
-    const durationKeys = [
-      'wordPartyHitDurationSeconds',
-      'wordPartyHit2DurationSeconds',
-      'wordPartyBonusDurationSeconds',
-      'wordPartyMiss1DurationSeconds',
-      'wordPartyMiss2DurationSeconds',
-      'wordPartyMiss3DurationSeconds',
-      'wordPartyMiss4DurationSeconds',
-      'wordPartyMiss5DurationSeconds',
-      'wordPartyMiss6DurationSeconds',
-      'wordPartyMiss7DurationSeconds',
-      'wordPartyMiss8DurationSeconds'
-    ]
-    const delayKeys = [
-      'delaySeconds',
-      'hitDelaySeconds',
-      'hit2DelaySeconds',
-      'bonusFirstDelaySeconds',
-      'bonusSecondDelaySeconds'
-    ]
     const maximums = settings({
       targetAmount: Number.MAX_SAFE_INTEGER,
       fixedOutput: 100,
       randomMin: 100,
       randomMax: 100,
-      ...Object.fromEntries([...durationKeys, ...delayKeys].map(key => [key, 86400]))
+      ...Object.fromEntries([...DURATION_SETTING_KEYS, ...DELAY_SETTING_KEYS].map(key => [key, 86400]))
     })
     const saved = await plugin.request({ method: 'PUT', body: { settings: maximums } })
     assert.equal(saved.code, 200, saved.response && saved.response.error)
@@ -802,7 +802,7 @@ test('Pavlok OneComme plugin', async t => {
     assert.equal(plugin.settings.fixedOutput, 100)
     assert.equal(plugin.settings.randomMin, 100)
     assert.equal(plugin.settings.randomMax, 100)
-    for (const key of [...durationKeys, ...delayKeys]) assert.equal(plugin.settings[key], 86400)
+    for (const key of [...DURATION_SETTING_KEYS, ...DELAY_SETTING_KEYS]) assert.equal(plugin.settings[key], 86400)
 
     let fetchCount = 0
     global.fetch = async () => {
@@ -817,39 +817,56 @@ test('Pavlok OneComme plugin', async t => {
 
   await t.test('最大許容値を超える設定と手動出力を拒否する', async () => {
     initialize()
-    const durationKeys = [
-      'wordPartyHitDurationSeconds',
-      'wordPartyHit2DurationSeconds',
-      'wordPartyBonusDurationSeconds',
-      'wordPartyMiss1DurationSeconds',
-      'wordPartyMiss2DurationSeconds',
-      'wordPartyMiss3DurationSeconds',
-      'wordPartyMiss4DurationSeconds',
-      'wordPartyMiss5DurationSeconds',
-      'wordPartyMiss6DurationSeconds',
-      'wordPartyMiss7DurationSeconds',
-      'wordPartyMiss8DurationSeconds'
-    ]
-    const delayKeys = [
-      'delaySeconds',
-      'hitDelaySeconds',
-      'hit2DelaySeconds',
-      'bonusFirstDelaySeconds',
-      'bonusSecondDelaySeconds'
-    ]
     const invalidSettings = [
       { targetAmount: Number.MAX_SAFE_INTEGER + 1 },
       { fixedOutput: 101 },
       { randomMin: 101 },
       { randomMax: 101 },
-      ...durationKeys.map(key => ({ [key]: 86400.1 })),
-      ...delayKeys.map(key => ({ [key]: 86400.1 }))
+      ...DURATION_SETTING_KEYS.map(key => ({ [key]: 86400.1 })),
+      ...DELAY_SETTING_KEYS.map(key => ({ [key]: 86400.1 }))
     ]
     for (const overrides of invalidSettings) {
       const result = await plugin.request({ method: 'PUT', body: { settings: settings(overrides) } })
       assert.equal(result.code, 400)
     }
     for (const output of [101, Number.MAX_SAFE_INTEGER, Infinity]) {
+      const result = await plugin.request({ method: 'POST', body: { action: 'manual', output } })
+      assert.equal(result.code, 400)
+      assert.match(result.response.error, /1～100の整数/)
+    }
+  })
+
+  await t.test('極端に大きい値と小さい値を安全に検証する', async () => {
+    initialize()
+    const timeKeys = [...DURATION_SETTING_KEYS, ...DELAY_SETTING_KEYS]
+    const tinySettings = settings({
+      ...Object.fromEntries(timeKeys.map(key => [key, Number.MIN_VALUE]))
+    })
+    const tinySaved = await plugin.request({ method: 'PUT', body: { settings: tinySettings } })
+    assert.equal(tinySaved.code, 200, tinySaved.response && tinySaved.response.error)
+    for (const key of timeKeys) assert.equal(plugin.settings[key], Number.MIN_VALUE)
+
+    const invalidSettings = [
+      ...[Number.MAX_VALUE, -Number.MAX_VALUE, Number.MIN_VALUE, -Number.MIN_VALUE].map(targetAmount => ({ targetAmount })),
+      ...['fixedOutput', 'randomMin', 'randomMax'].flatMap(key => [
+        { [key]: Number.MAX_VALUE },
+        { [key]: Number.MIN_VALUE },
+        { [key]: -Number.MAX_VALUE }
+      ]),
+      ...timeKeys.flatMap(key => [
+        { [key]: Number.MAX_VALUE },
+        { [key]: -Number.MAX_VALUE },
+        { [key]: -Number.MIN_VALUE }
+      ]),
+      { targetAmount: '9'.repeat(1000) },
+      { fixedOutput: '9'.repeat(1000) },
+      { delaySeconds: '9'.repeat(1000) }
+    ]
+    for (const overrides of invalidSettings) {
+      const result = await plugin.request({ method: 'PUT', body: { settings: settings(overrides) } })
+      assert.equal(result.code, 400)
+    }
+    for (const output of [Number.MAX_VALUE, Number.MIN_VALUE, -Number.MAX_VALUE, -Number.MIN_VALUE, '9'.repeat(1000)]) {
       const result = await plugin.request({ method: 'POST', body: { action: 'manual', output } })
       assert.equal(result.code, 400)
       assert.match(result.response.error, /1～100の整数/)
