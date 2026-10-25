@@ -767,6 +767,95 @@ test('Pavlok OneComme plugin', async t => {
     }
   })
 
+  await t.test('最大許容値を保存し出力100をDRY-RUNで実行できる', async () => {
+    initialize()
+    const durationKeys = [
+      'wordPartyHitDurationSeconds',
+      'wordPartyHit2DurationSeconds',
+      'wordPartyBonusDurationSeconds',
+      'wordPartyMiss1DurationSeconds',
+      'wordPartyMiss2DurationSeconds',
+      'wordPartyMiss3DurationSeconds',
+      'wordPartyMiss4DurationSeconds',
+      'wordPartyMiss5DurationSeconds',
+      'wordPartyMiss6DurationSeconds',
+      'wordPartyMiss7DurationSeconds',
+      'wordPartyMiss8DurationSeconds'
+    ]
+    const delayKeys = [
+      'delaySeconds',
+      'hitDelaySeconds',
+      'hit2DelaySeconds',
+      'bonusFirstDelaySeconds',
+      'bonusSecondDelaySeconds'
+    ]
+    const maximums = settings({
+      targetAmount: Number.MAX_SAFE_INTEGER,
+      fixedOutput: 100,
+      randomMin: 100,
+      randomMax: 100,
+      ...Object.fromEntries([...durationKeys, ...delayKeys].map(key => [key, 86400]))
+    })
+    const saved = await plugin.request({ method: 'PUT', body: { settings: maximums } })
+    assert.equal(saved.code, 200, saved.response && saved.response.error)
+    assert.equal(plugin.settings.targetAmount, Number.MAX_SAFE_INTEGER)
+    assert.equal(plugin.settings.fixedOutput, 100)
+    assert.equal(plugin.settings.randomMin, 100)
+    assert.equal(plugin.settings.randomMax, 100)
+    for (const key of [...durationKeys, ...delayKeys]) assert.equal(plugin.settings[key], 86400)
+
+    let fetchCount = 0
+    global.fetch = async () => {
+      fetchCount += 1
+      throw new Error('DRY-RUNでfetchが呼ばれました。')
+    }
+    const manual = await plugin.request({ method: 'POST', body: { action: 'manual', output: 100 } })
+    assert.equal(manual.code, 200)
+    assert(plugin.logs.some(line => line.includes('[DRY-RUN] #MANUAL 電撃 output=100')))
+    assert.equal(fetchCount, 0)
+  })
+
+  await t.test('最大許容値を超える設定と手動出力を拒否する', async () => {
+    initialize()
+    const durationKeys = [
+      'wordPartyHitDurationSeconds',
+      'wordPartyHit2DurationSeconds',
+      'wordPartyBonusDurationSeconds',
+      'wordPartyMiss1DurationSeconds',
+      'wordPartyMiss2DurationSeconds',
+      'wordPartyMiss3DurationSeconds',
+      'wordPartyMiss4DurationSeconds',
+      'wordPartyMiss5DurationSeconds',
+      'wordPartyMiss6DurationSeconds',
+      'wordPartyMiss7DurationSeconds',
+      'wordPartyMiss8DurationSeconds'
+    ]
+    const delayKeys = [
+      'delaySeconds',
+      'hitDelaySeconds',
+      'hit2DelaySeconds',
+      'bonusFirstDelaySeconds',
+      'bonusSecondDelaySeconds'
+    ]
+    const invalidSettings = [
+      { targetAmount: Number.MAX_SAFE_INTEGER + 1 },
+      { fixedOutput: 101 },
+      { randomMin: 101 },
+      { randomMax: 101 },
+      ...durationKeys.map(key => ({ [key]: 86400.1 })),
+      ...delayKeys.map(key => ({ [key]: 86400.1 }))
+    ]
+    for (const overrides of invalidSettings) {
+      const result = await plugin.request({ method: 'PUT', body: { settings: settings(overrides) } })
+      assert.equal(result.code, 400)
+    }
+    for (const output of [101, Number.MAX_SAFE_INTEGER, Infinity]) {
+      const result = await plugin.request({ method: 'POST', body: { action: 'manual', output } })
+      assert.equal(result.code, 400)
+      assert.match(result.response.error, /1～100の整数/)
+    }
+  })
+
   await t.test('確変はPavlokへ電撃を2回送信する', async () => {
     initialize()
     let stimulusCount = 0
