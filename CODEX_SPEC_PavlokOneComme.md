@@ -46,11 +46,16 @@
 - WordParty連携はPavlok実機送信設定から独立させる。PavlokがDRY-RUNでもWordParty連携ONなら演出を実行する。
 - 旧`cooldownSeconds`は`bonusSecondDelaySeconds`へ移行し、あたりと確変1撃目の待機は0秒で補完する。
 
-## 未確認事項
+## 実機確認状況
+
+確認済み（2026-10-25）:
 
 - 実際のわんコメへのインストールとコメントテスター受信。
 - Electron `safeStorage`をわんコメプラグイン環境から使用できること。
 - Pavlok実機へのHTTP 200送信。
+
+未確認:
+
 - わんコメ実環境でのWordParty 6～11演出の表示。
 
-実機確認まではDRY-RUNを初期値とし、上記を確認してから公開版とすること。
+実機送信は確認済みでもDRY-RUNを初期値とする。WordParty 6～11演出は引き続き実環境で確認すること。
