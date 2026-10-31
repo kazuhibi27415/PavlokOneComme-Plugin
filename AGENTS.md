@@ -152,3 +152,15 @@ ZIPは `PavlokOneComme-Plugin-v<version>.zip` とし、展開時の最上位が 
 - 配布前にソースと展開版のハッシュが一致することを確認する。
 - ZIPを展開または読み取り、ファイル構成、バージョン、製作者名、UIDを確認する。
 - 配布物内に旧製作者名や秘密情報が残っていないことを検索する。
+
+## GitHub Releaseへの追加
+
+配布ZIPを生成した場合は、検証・コミット・pushの完了後に、生成したZIPを対応するGitHub Releaseへ自動的に追加します。
+
+- `VERSION.txt` の値に対応する `v<version>` タグとGitHub Releaseを使用する。
+- 対応するReleaseが存在しない場合は、push済みのコミットを対象にタグとReleaseを作成する。
+- 対応するReleaseが存在する場合は、同名のZIPを置き換えて最新の生成物を添付する。
+- 添付対象は `dist/PavlokOneComme-Plugin-v<version>.zip` だけとし、展開フォルダーや開発用ファイルは添付しない。
+- 配布物の検証に失敗した場合はReleaseへ追加せず、失敗理由を報告する。
+- GitHub CLIの未導入、未認証、権限不足、ネットワーク障害などで追加できない場合は、理由と未完了の操作を報告する。
+- 最終コメントにReleaseの作成または更新結果とURLを含める。
