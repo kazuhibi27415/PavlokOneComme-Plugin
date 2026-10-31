@@ -10,7 +10,7 @@ try {
   safeStorage = null
 }
 
-const VERSION = '1.5.0'
+const VERSION = '1.6.0'
 const UID = 'com.kaz.pavlok-superchat'
 const PAVLOK_USER_URL = 'https://api.pavlok.com/api/v5/user/'
 const PAVLOK_STIMULUS_URL = 'https://api.pavlok.com/api/v5/stimulus/send'
@@ -20,58 +20,98 @@ const MAX_RECENT_SUPERCHATS = 5000
 const MAX_LOG_LINES = 500
 const MAX_LOG_BYTES = 1024 * 1024
 
+const SLOT_DEFINITIONS = Object.freeze([
+  { slot: 1, label: 'あたり', enabledField: 'slotHitEnabled', weightField: 'slotHitWeight', nameField: 'slotHitName', idField: 'wordPartyHitId', durationField: 'wordPartyHitDurationSeconds', stimulusCount: 1, firstDelayField: 'hitDelaySeconds' },
+  { slot: 2, label: '確変', enabledField: 'slotBonusEnabled', weightField: 'slotBonusWeight', nameField: 'slotBonusName', idField: 'wordPartyBonusId', durationField: 'wordPartyBonusDurationSeconds', stimulusCount: 2, firstDelayField: 'bonusFirstDelaySeconds', secondDelayField: 'bonusSecondDelaySeconds' },
+  { slot: 3, label: 'はずれ1', enabledField: null, weightField: 'slotMiss1Weight', nameField: 'slotMiss1Name', idField: 'wordPartyMiss1Id', durationField: 'wordPartyMiss1DurationSeconds', stimulusCount: 0 },
+  { slot: 4, label: 'はずれ2', enabledField: 'slotMiss2Enabled', weightField: 'slotMiss2Weight', nameField: 'slotMiss2Name', idField: 'wordPartyMiss2Id', durationField: 'wordPartyMiss2DurationSeconds', stimulusCount: 0 },
+  { slot: 5, label: 'はずれ3', enabledField: 'slotMiss3Enabled', weightField: 'slotMiss3Weight', nameField: 'slotMiss3Name', idField: 'wordPartyMiss3Id', durationField: 'wordPartyMiss3DurationSeconds', stimulusCount: 0 },
+  { slot: 6, label: 'はずれ4', enabledField: 'slotMiss4Enabled', weightField: 'slotMiss4Weight', nameField: 'slotMiss4Name', idField: 'wordPartyMiss4Id', durationField: 'wordPartyMiss4DurationSeconds', stimulusCount: 0 },
+  { slot: 7, label: '追加あたり', enabledField: 'slotHit2Enabled', weightField: 'slotHit2Weight', nameField: 'slotHit2Name', idField: 'wordPartyHit2Id', durationField: 'wordPartyHit2DurationSeconds', stimulusCount: 1, firstDelayField: 'hit2DelaySeconds', additionalHit: true },
+  { slot: 8, label: 'はずれ5', enabledField: 'slotMiss5Enabled', weightField: 'slotMiss5Weight', nameField: 'slotMiss5Name', idField: 'wordPartyMiss5Id', durationField: 'wordPartyMiss5DurationSeconds', stimulusCount: 0 },
+  { slot: 9, label: 'はずれ6', enabledField: 'slotMiss6Enabled', weightField: 'slotMiss6Weight', nameField: 'slotMiss6Name', idField: 'wordPartyMiss6Id', durationField: 'wordPartyMiss6DurationSeconds', stimulusCount: 0 },
+  { slot: 10, label: 'はずれ7', enabledField: 'slotMiss7Enabled', weightField: 'slotMiss7Weight', nameField: 'slotMiss7Name', idField: 'wordPartyMiss7Id', durationField: 'wordPartyMiss7DurationSeconds', stimulusCount: 0 },
+  { slot: 11, label: 'はずれ8', enabledField: 'slotMiss8Enabled', weightField: 'slotMiss8Weight', nameField: 'slotMiss8Name', idField: 'wordPartyMiss8Id', durationField: 'wordPartyMiss8DurationSeconds', stimulusCount: 0 }
+])
+
+const DEFAULT_TARGET_AMOUNTS = Object.freeze([304, 500, 1000, 2000])
+
+function createDefaultGroup(index) {
+  return {
+    enabled: index === 0,
+    groupName: `金額枠${index + 1}`,
+    targetAmount: DEFAULT_TARGET_AMOUNTS[index],
+    outputMode: 'fixed',
+    fixedOutput: 50,
+    randomMin: 30,
+    randomMax: 90,
+    delaySeconds: 1,
+    slotHitEnabled: true,
+    slotBonusEnabled: true,
+    slotMiss2Enabled: true,
+    slotMiss3Enabled: true,
+    slotMiss4Enabled: true,
+    slotHit2Enabled: false,
+    slotMiss5Enabled: false,
+    slotMiss6Enabled: false,
+    slotMiss7Enabled: false,
+    slotMiss8Enabled: false,
+    slotHitWeight: 1,
+    slotBonusWeight: 1,
+    slotMiss1Weight: 1,
+    slotMiss2Weight: 1,
+    slotMiss3Weight: 1,
+    slotMiss4Weight: 1,
+    slotHit2Weight: 1,
+    slotMiss5Weight: 1,
+    slotMiss6Weight: 1,
+    slotMiss7Weight: 1,
+    slotMiss8Weight: 1,
+    wordPartyHitId: '',
+    wordPartyHit2Id: '',
+    wordPartyBonusId: '',
+    wordPartyMiss1Id: '',
+    wordPartyMiss2Id: '',
+    wordPartyMiss3Id: '',
+    wordPartyMiss4Id: '',
+    wordPartyMiss5Id: '',
+    wordPartyMiss6Id: '',
+    wordPartyMiss7Id: '',
+    wordPartyMiss8Id: '',
+    slotHitName: 'ビリビリタイム',
+    slotHit2Name: 'ビリビリタイム2',
+    slotBonusName: 'スーパービリビリタイム',
+    slotMiss1Name: 'ハズレ～',
+    slotMiss2Name: '残念でした',
+    slotMiss3Name: 'あたりませーん',
+    slotMiss4Name: 'ビリビリするなんてさいあく',
+    slotMiss5Name: 'はずれ5',
+    slotMiss6Name: 'はずれ6',
+    slotMiss7Name: 'はずれ7',
+    slotMiss8Name: 'はずれ8',
+    wordPartyHitDurationSeconds: 7,
+    wordPartyHit2DurationSeconds: 7,
+    wordPartyBonusDurationSeconds: 11,
+    wordPartyMiss1DurationSeconds: 9,
+    wordPartyMiss2DurationSeconds: 8,
+    wordPartyMiss3DurationSeconds: 7,
+    wordPartyMiss4DurationSeconds: 6,
+    wordPartyMiss5DurationSeconds: 5,
+    wordPartyMiss6DurationSeconds: 4,
+    wordPartyMiss7DurationSeconds: 3,
+    wordPartyMiss8DurationSeconds: 2,
+    hitDelaySeconds: 5,
+    hit2DelaySeconds: 5,
+    bonusFirstDelaySeconds: 7,
+    bonusSecondDelaySeconds: 2
+  }
+}
+
 const DEFAULT_SETTINGS = Object.freeze({
   pavlokEnabled: false,
   wordPartyEnabled: false,
-  slotHit2Enabled: false,
-  slotMiss5Enabled: false,
-  slotMiss6Enabled: false,
-  slotMiss7Enabled: false,
-  slotMiss8Enabled: false,
-  wordPartyHitId: '',
-  wordPartyHit2Id: '',
-  wordPartyBonusId: '',
-  wordPartyMiss1Id: '',
-  wordPartyMiss2Id: '',
-  wordPartyMiss3Id: '',
-  wordPartyMiss4Id: '',
-  wordPartyMiss5Id: '',
-  wordPartyMiss6Id: '',
-  wordPartyMiss7Id: '',
-  wordPartyMiss8Id: '',
-  slotHitName: 'ビリビリタイム',
-  slotHit2Name: 'ビリビリタイム2',
-  slotBonusName: 'スーパービリビリタイム',
-  slotMiss1Name: 'ハズレ～',
-  slotMiss2Name: '残念でした',
-  slotMiss3Name: 'あたりませーん',
-  slotMiss4Name: 'ビリビリするなんてさいあく',
-  slotMiss5Name: 'はずれ5',
-  slotMiss6Name: 'はずれ6',
-  slotMiss7Name: 'はずれ7',
-  slotMiss8Name: 'はずれ8',
-  wordPartyHitDurationSeconds: 7,
-  wordPartyHit2DurationSeconds: 7,
-  wordPartyBonusDurationSeconds: 11,
-  wordPartyMiss1DurationSeconds: 9,
-  wordPartyMiss2DurationSeconds: 8,
-  wordPartyMiss3DurationSeconds: 7,
-  wordPartyMiss4DurationSeconds: 6,
-  wordPartyMiss5DurationSeconds: 5,
-  wordPartyMiss6DurationSeconds: 4,
-  wordPartyMiss7DurationSeconds: 3,
-  wordPartyMiss8DurationSeconds: 2,
-  delaySeconds: 1,
-  hitDelaySeconds: 5,
-  hit2DelaySeconds: 5,
-  bonusFirstDelaySeconds: 7,
-  bonusSecondDelaySeconds: 2,
   ignoreInitialHistory: true,
-  targetAmount: 304,
-  outputMode: 'fixed',
-  fixedOutput: 50,
-  randomMin: 30,
-  randomMax: 90
+  amountGroups: DEFAULT_TARGET_AMOUNTS.map((_, index) => createDefaultGroup(index))
 })
 
 function copyDefaults() {
@@ -103,6 +143,14 @@ function outputNumber(value, label) {
   return number
 }
 
+function weightNumber(value, label) {
+  const number = Number(value)
+  if (!Number.isInteger(number) || number < 1 || number > 10) {
+    throw new Error(`${label}は1～10の整数で指定してください。`)
+  }
+  return number
+}
+
 function wordPartyId(value, label, required) {
   const id = String(value == null ? '' : value).trim()
   if (!id) {
@@ -123,113 +171,102 @@ function slotName(value, label, fallback) {
   return name
 }
 
-function migrateLegacySettings(input) {
+function migrateOldAmountSettings(input) {
   if (!input || typeof input !== 'object' || !Array.isArray(input.groups)) return input
+  const defaults = createDefaultGroup(0)
   const group = input.groups.find(item => item && item.enabled === true) || input.groups.find(Boolean) || {}
   const amount = String(group.amounts || '').split(',').map(item => item.trim()).find(item => /^\d+$/.test(item) && Number(item) > 0)
   return {
     ...input,
-    targetAmount: Number(amount || DEFAULT_SETTINGS.targetAmount),
-    outputMode: group.outputMode || DEFAULT_SETTINGS.outputMode,
-    fixedOutput: group.fixedOutput == null ? DEFAULT_SETTINGS.fixedOutput : group.fixedOutput,
-    randomMin: group.randomMin == null ? DEFAULT_SETTINGS.randomMin : group.randomMin,
-    randomMax: group.randomMax == null ? DEFAULT_SETTINGS.randomMax : group.randomMax
+    targetAmount: Number(amount || defaults.targetAmount),
+    outputMode: group.outputMode || defaults.outputMode,
+    fixedOutput: group.fixedOutput == null ? defaults.fixedOutput : group.fixedOutput,
+    randomMin: group.randomMin == null ? defaults.randomMin : group.randomMin,
+    randomMax: group.randomMax == null ? defaults.randomMax : group.randomMax
   }
+}
+
+function migrateLegacySettings(rawInput) {
+  if (!rawInput || typeof rawInput !== 'object') return rawInput
+  if (Array.isArray(rawInput.amountGroups)) return rawInput
+  const input = migrateOldAmountSettings(rawInput)
+  const amountGroups = DEFAULT_TARGET_AMOUNTS.map((_, index) => createDefaultGroup(index))
+  amountGroups[0] = { ...amountGroups[0], ...input, enabled: true }
+  if (input.bonusSecondDelaySeconds == null && input.cooldownSeconds != null) {
+    amountGroups[0].bonusSecondDelaySeconds = input.cooldownSeconds
+  }
+  return {
+    pavlokEnabled: input.pavlokEnabled === true,
+    wordPartyEnabled: input.wordPartyEnabled === true,
+    ignoreInitialHistory: input.ignoreInitialHistory !== false,
+    amountGroups
+  }
+}
+
+function validateAmountGroup(rawGroup, index, wordPartyEnabled) {
+  const defaults = createDefaultGroup(index)
+  const input = { ...defaults, ...(rawGroup && typeof rawGroup === 'object' ? rawGroup : {}) }
+  const groupLabel = `金額枠${index + 1}`
+  const groupName = slotName(input.groupName, `${groupLabel}の名前`, defaults.groupName)
+  const enabled = index === 0 || input.enabled === true
+  const targetAmount = Number(input.targetAmount)
+  if (!Number.isSafeInteger(targetAmount) || targetAmount <= 0) {
+    throw new Error(`${groupLabel}のびりびり対象金額は1以上の整数で指定してください。`)
+  }
+  const outputMode = input.outputMode === 'random' ? 'random' : input.outputMode === 'fixed' ? 'fixed' : null
+  if (!outputMode) throw new Error(`${groupLabel}の出力方法が不正です。`)
+  const randomMin = outputNumber(input.randomMin, `${groupLabel}のランダム下限`)
+  const randomMax = outputNumber(input.randomMax, `${groupLabel}のランダム上限`)
+  if (randomMin > randomMax) throw new Error(`${groupLabel}のランダム下限は上限以下にしてください。`)
+  const bonusSecondDelaySource = input.bonusSecondDelaySeconds == null
+    ? (input.cooldownSeconds == null ? defaults.bonusSecondDelaySeconds : input.cooldownSeconds)
+    : input.bonusSecondDelaySeconds
+  const group = {
+    enabled,
+    groupName,
+    targetAmount,
+    outputMode,
+    fixedOutput: outputNumber(input.fixedOutput, `${groupLabel}の固定出力`),
+    randomMin,
+    randomMax,
+    delaySeconds: finiteNumber(input.delaySeconds, `${groupLabel}の検出後の待機秒数`, 0, 86400),
+    hitDelaySeconds: finiteNumber(input.hitDelaySeconds, `${groupLabel}のあたりのWordParty呼び出し後から電撃までの秒数`, 0, 86400),
+    hit2DelaySeconds: finiteNumber(input.hit2DelaySeconds, `${groupLabel}の追加あたりのWordParty呼び出し後から電撃までの秒数`, 0, 86400),
+    bonusFirstDelaySeconds: finiteNumber(input.bonusFirstDelaySeconds, `${groupLabel}の確変のWordParty呼び出し後から1撃目までの秒数`, 0, 86400),
+    bonusSecondDelaySeconds: finiteNumber(bonusSecondDelaySource, `${groupLabel}の確変の1撃目から2撃目までの秒数`, 0, 86400)
+  }
+  const activeWordPartyIds = []
+  for (const definition of SLOT_DEFINITIONS) {
+    const slotEnabled = definition.enabledField == null || input[definition.enabledField] === true
+    if (definition.enabledField) group[definition.enabledField] = slotEnabled
+    group[definition.weightField] = weightNumber(input[definition.weightField], `${groupLabel}の${definition.label}の重み`)
+    group[definition.nameField] = slotName(input[definition.nameField], `${groupLabel}の${definition.label}枠名`, defaults[definition.nameField])
+    group[definition.idField] = wordPartyId(input[definition.idField], `${groupLabel}の${definition.label}演出ID`, wordPartyEnabled && enabled && slotEnabled)
+    group[definition.durationField] = finiteNumber(input[definition.durationField], `${groupLabel}の${definition.label}の演出時間`, 0, 86400)
+    if (enabled && slotEnabled) activeWordPartyIds.push(group[definition.idField])
+  }
+  if (wordPartyEnabled && enabled && new Set(activeWordPartyIds).size !== activeWordPartyIds.length) {
+    throw new Error(`${groupLabel}で使用中の${activeWordPartyIds.length}枠には別々の演出IDを指定してください。`)
+  }
+  return group
 }
 
 function validateSettings(rawInput) {
   const input = migrateLegacySettings(rawInput)
-  if (!input || typeof input !== 'object') throw new Error('設定が不正です。')
-  const targetAmount = Number(input.targetAmount)
-  if (!Number.isSafeInteger(targetAmount) || targetAmount <= 0) {
-    throw new Error('びりびり対象金額は1以上の整数で指定してください。')
+  if (!input || typeof input !== 'object' || !Array.isArray(input.amountGroups) || input.amountGroups.length > 4) {
+    throw new Error('設定が不正です。')
   }
-  const outputMode = input.outputMode === 'random' ? 'random' : input.outputMode === 'fixed' ? 'fixed' : null
-  if (!outputMode) throw new Error('出力方法が不正です。')
-  const randomMin = outputNumber(input.randomMin, 'ランダム下限')
-  const randomMax = outputNumber(input.randomMax, 'ランダム上限')
-  if (randomMin > randomMax) throw new Error('ランダム下限は上限以下にしてください。')
   const wordPartyEnabled = input.wordPartyEnabled === true
-  const slotHit2Enabled = input.slotHit2Enabled === true
-  const slotMiss5Enabled = input.slotMiss5Enabled === true
-  const slotMiss6Enabled = input.slotMiss6Enabled === true
-  const slotMiss7Enabled = input.slotMiss7Enabled === true
-  const slotMiss8Enabled = input.slotMiss8Enabled === true
-  const wordPartyHitId = wordPartyId(input.wordPartyHitId, 'あたり演出ID', wordPartyEnabled)
-  const wordPartyHit2Id = wordPartyId(input.wordPartyHit2Id, '追加あたり演出ID', wordPartyEnabled && slotHit2Enabled)
-  const wordPartyBonusId = wordPartyId(input.wordPartyBonusId, '確変演出ID', wordPartyEnabled)
-  const wordPartyMiss1Id = wordPartyId(input.wordPartyMiss1Id, 'はずれ1演出ID', wordPartyEnabled)
-  const wordPartyMiss2Id = wordPartyId(input.wordPartyMiss2Id, 'はずれ2演出ID', wordPartyEnabled)
-  const wordPartyMiss3Id = wordPartyId(input.wordPartyMiss3Id, 'はずれ3演出ID', wordPartyEnabled)
-  const wordPartyMiss4Id = wordPartyId(input.wordPartyMiss4Id, 'はずれ4演出ID', wordPartyEnabled)
-  const wordPartyMiss5Id = wordPartyId(input.wordPartyMiss5Id, 'はずれ5演出ID', wordPartyEnabled && slotMiss5Enabled)
-  const wordPartyMiss6Id = wordPartyId(input.wordPartyMiss6Id, 'はずれ6演出ID', wordPartyEnabled && slotMiss6Enabled)
-  const wordPartyMiss7Id = wordPartyId(input.wordPartyMiss7Id, 'はずれ7演出ID', wordPartyEnabled && slotMiss7Enabled)
-  const wordPartyMiss8Id = wordPartyId(input.wordPartyMiss8Id, 'はずれ8演出ID', wordPartyEnabled && slotMiss8Enabled)
-  const wordPartyIds = [wordPartyHitId, wordPartyBonusId, wordPartyMiss1Id, wordPartyMiss2Id, wordPartyMiss3Id, wordPartyMiss4Id]
-  if (slotHit2Enabled) wordPartyIds.push(wordPartyHit2Id)
-  if (slotMiss5Enabled) wordPartyIds.push(wordPartyMiss5Id)
-  if (slotMiss6Enabled) wordPartyIds.push(wordPartyMiss6Id)
-  if (slotMiss7Enabled) wordPartyIds.push(wordPartyMiss7Id)
-  if (slotMiss8Enabled) wordPartyIds.push(wordPartyMiss8Id)
-  if (wordPartyEnabled && new Set(wordPartyIds).size !== wordPartyIds.length) {
-    throw new Error(`WordPartyで使用中の${wordPartyIds.length}枠には別々の演出IDを指定してください。`)
+  const amountGroups = DEFAULT_TARGET_AMOUNTS.map((_, index) => validateAmountGroup(input.amountGroups[index], index, wordPartyEnabled))
+  const activeAmounts = amountGroups.filter(group => group.enabled).map(group => group.targetAmount)
+  if (new Set(activeAmounts).size !== activeAmounts.length) {
+    throw new Error('有効な金額枠には別々のびりびり対象金額を指定してください。')
   }
-  const bonusSecondDelaySource = input.bonusSecondDelaySeconds == null
-    ? (input.cooldownSeconds == null ? DEFAULT_SETTINGS.bonusSecondDelaySeconds : input.cooldownSeconds)
-    : input.bonusSecondDelaySeconds
   return {
     pavlokEnabled: input.pavlokEnabled === true,
     wordPartyEnabled,
-    slotHit2Enabled,
-    slotMiss5Enabled,
-    slotMiss6Enabled,
-    slotMiss7Enabled,
-    slotMiss8Enabled,
-    wordPartyHitId,
-    wordPartyHit2Id,
-    wordPartyBonusId,
-    wordPartyMiss1Id,
-    wordPartyMiss2Id,
-    wordPartyMiss3Id,
-    wordPartyMiss4Id,
-    wordPartyMiss5Id,
-    wordPartyMiss6Id,
-    wordPartyMiss7Id,
-    wordPartyMiss8Id,
-    slotHitName: slotName(input.slotHitName, 'あたり枠名', DEFAULT_SETTINGS.slotHitName),
-    slotHit2Name: slotName(input.slotHit2Name, '追加あたり枠名', DEFAULT_SETTINGS.slotHit2Name),
-    slotBonusName: slotName(input.slotBonusName, '確変枠名', DEFAULT_SETTINGS.slotBonusName),
-    slotMiss1Name: slotName(input.slotMiss1Name, 'はずれ1枠名', DEFAULT_SETTINGS.slotMiss1Name),
-    slotMiss2Name: slotName(input.slotMiss2Name, 'はずれ2枠名', DEFAULT_SETTINGS.slotMiss2Name),
-    slotMiss3Name: slotName(input.slotMiss3Name, 'はずれ3枠名', DEFAULT_SETTINGS.slotMiss3Name),
-    slotMiss4Name: slotName(input.slotMiss4Name, 'はずれ4枠名', DEFAULT_SETTINGS.slotMiss4Name),
-    slotMiss5Name: slotName(input.slotMiss5Name, 'はずれ5枠名', DEFAULT_SETTINGS.slotMiss5Name),
-    slotMiss6Name: slotName(input.slotMiss6Name, 'はずれ6枠名', DEFAULT_SETTINGS.slotMiss6Name),
-    slotMiss7Name: slotName(input.slotMiss7Name, 'はずれ7枠名', DEFAULT_SETTINGS.slotMiss7Name),
-    slotMiss8Name: slotName(input.slotMiss8Name, 'はずれ8枠名', DEFAULT_SETTINGS.slotMiss8Name),
-    wordPartyHitDurationSeconds: finiteNumber(input.wordPartyHitDurationSeconds == null ? DEFAULT_SETTINGS.wordPartyHitDurationSeconds : input.wordPartyHitDurationSeconds, 'あたりの演出時間', 0, 86400),
-    wordPartyHit2DurationSeconds: finiteNumber(input.wordPartyHit2DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyHit2DurationSeconds : input.wordPartyHit2DurationSeconds, '追加あたりの演出時間', 0, 86400),
-    wordPartyBonusDurationSeconds: finiteNumber(input.wordPartyBonusDurationSeconds == null ? DEFAULT_SETTINGS.wordPartyBonusDurationSeconds : input.wordPartyBonusDurationSeconds, '確変の演出時間', 0, 86400),
-    wordPartyMiss1DurationSeconds: finiteNumber(input.wordPartyMiss1DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss1DurationSeconds : input.wordPartyMiss1DurationSeconds, 'はずれ1の演出時間', 0, 86400),
-    wordPartyMiss2DurationSeconds: finiteNumber(input.wordPartyMiss2DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss2DurationSeconds : input.wordPartyMiss2DurationSeconds, 'はずれ2の演出時間', 0, 86400),
-    wordPartyMiss3DurationSeconds: finiteNumber(input.wordPartyMiss3DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss3DurationSeconds : input.wordPartyMiss3DurationSeconds, 'はずれ3の演出時間', 0, 86400),
-    wordPartyMiss4DurationSeconds: finiteNumber(input.wordPartyMiss4DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss4DurationSeconds : input.wordPartyMiss4DurationSeconds, 'はずれ4の演出時間', 0, 86400),
-    wordPartyMiss5DurationSeconds: finiteNumber(input.wordPartyMiss5DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss5DurationSeconds : input.wordPartyMiss5DurationSeconds, 'はずれ5の演出時間', 0, 86400),
-    wordPartyMiss6DurationSeconds: finiteNumber(input.wordPartyMiss6DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss6DurationSeconds : input.wordPartyMiss6DurationSeconds, 'はずれ6の演出時間', 0, 86400),
-    wordPartyMiss7DurationSeconds: finiteNumber(input.wordPartyMiss7DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss7DurationSeconds : input.wordPartyMiss7DurationSeconds, 'はずれ7の演出時間', 0, 86400),
-    wordPartyMiss8DurationSeconds: finiteNumber(input.wordPartyMiss8DurationSeconds == null ? DEFAULT_SETTINGS.wordPartyMiss8DurationSeconds : input.wordPartyMiss8DurationSeconds, 'はずれ8の演出時間', 0, 86400),
-    delaySeconds: finiteNumber(input.delaySeconds, '検出後の待機秒数', 0, 86400),
-    hitDelaySeconds: finiteNumber(input.hitDelaySeconds == null ? DEFAULT_SETTINGS.hitDelaySeconds : input.hitDelaySeconds, 'あたりのWordParty呼び出し後から電撃までの秒数', 0, 86400),
-    hit2DelaySeconds: finiteNumber(input.hit2DelaySeconds == null ? DEFAULT_SETTINGS.hit2DelaySeconds : input.hit2DelaySeconds, '追加あたりのWordParty呼び出し後から電撃までの秒数', 0, 86400),
-    bonusFirstDelaySeconds: finiteNumber(input.bonusFirstDelaySeconds == null ? DEFAULT_SETTINGS.bonusFirstDelaySeconds : input.bonusFirstDelaySeconds, '確変のWordParty呼び出し後から1撃目までの秒数', 0, 86400),
-    bonusSecondDelaySeconds: finiteNumber(bonusSecondDelaySource, '確変の1撃目から2撃目までの秒数', 0, 86400),
     ignoreInitialHistory: input.ignoreInitialHistory !== false,
-    targetAmount,
-    outputMode,
-    fixedOutput: outputNumber(input.fixedOutput, '固定出力'),
-    randomMin,
-    randomMax
+    amountGroups
   }
 }
 
@@ -387,17 +424,20 @@ const plugin = {
       this.record('INFO', '[SKIP] 整数円でないため対象外')
       return
     }
-    if (event.price !== this.settings.targetAmount) {
+    const groupIndex = this.settings.amountGroups.findIndex(group => group.enabled && group.targetAmount === event.price)
+    if (groupIndex < 0) {
       this.record('INFO', `[SKIP] ${event.paidText}は発火対象外`)
       return
     }
+    const group = this.settings.amountGroups[groupIndex]
     this.jobNumber += 1
     this.queue.push({
       number: this.jobNumber,
       event,
-      readyAt: Date.now() + this.settings.delaySeconds * 1000
+      groupIndex,
+      readyAt: Date.now() + group.delaySeconds * 1000
     })
-    this.record('INFO', `[QUEUE] #${this.jobNumber} ${event.paidText} 予約 (delay=${this.settings.delaySeconds}s)`)
+    this.record('INFO', `[QUEUE] #${this.jobNumber} ${group.groupName} / ${event.paidText} 予約 (delay=${group.delaySeconds}s)`)
     this.processQueue()
   },
 
@@ -413,76 +453,68 @@ const plugin = {
     return active()
   },
 
-  selectOutput() {
-    if (this.settings.outputMode === 'fixed') return this.settings.fixedOutput
-    return Math.floor(Math.random() * (this.settings.randomMax - this.settings.randomMin + 1)) + this.settings.randomMin
+  selectOutput(group = this.settings.amountGroups[0]) {
+    if (group.outputMode === 'fixed') return group.fixedOutput
+    return Math.floor(Math.random() * (group.randomMax - group.randomMin + 1)) + group.randomMin
   },
 
-  activeLotterySlots() {
-    const slots = [1, 2, 3, 4, 5, 6]
-    if (this.settings.slotHit2Enabled) slots.push(7)
-    if (this.settings.slotMiss5Enabled) slots.push(8)
-    if (this.settings.slotMiss6Enabled) slots.push(9)
-    if (this.settings.slotMiss7Enabled) slots.push(10)
-    if (this.settings.slotMiss8Enabled) slots.push(11)
-    return slots
+  activeLotterySlots(group = this.settings.amountGroups[0]) {
+    return SLOT_DEFINITIONS
+      .filter(definition => definition.enabledField == null || group[definition.enabledField])
+      .map(definition => definition.slot)
   },
 
-  drawLottery() {
-    const activeSlots = this.activeLotterySlots()
-    const slot = activeSlots[Math.floor(Math.random() * activeSlots.length)]
-    return this.lotteryForSlot(slot)
+  drawLottery(group = this.settings.amountGroups[0]) {
+    const activeDefinitions = SLOT_DEFINITIONS.filter(definition => definition.enabledField == null || group[definition.enabledField])
+    const totalWeight = activeDefinitions.reduce((total, definition) => total + group[definition.weightField], 0)
+    const selectedWeight = Math.random() * totalWeight
+    let cumulativeWeight = 0
+    for (const definition of activeDefinitions) {
+      cumulativeWeight += group[definition.weightField]
+      if (selectedWeight < cumulativeWeight) return this.lotteryForSlot(definition.slot, group)
+    }
+    return this.lotteryForSlot(activeDefinitions[activeDefinitions.length - 1].slot, group)
   },
 
-  lotteryForSlot(slot) {
-    const activeSlots = this.activeLotterySlots()
+  lotteryForSlot(slot, group = this.settings.amountGroups[0]) {
+    const definition = SLOT_DEFINITIONS.find(item => item.slot === slot)
+    if (!definition) throw new Error('抽選枠が不正です。')
+    const activeSlots = this.activeLotterySlots(group)
     const activeIndex = activeSlots.indexOf(slot)
-    const common = { slot, position: activeIndex < 0 ? null : activeIndex + 1, totalSlots: activeSlots.length, active: activeIndex >= 0 }
-    if (slot === 1) return { ...common, name: this.settings.slotHitName, stimulusCount: 1 }
-    if (slot === 2) return { ...common, name: this.settings.slotBonusName, stimulusCount: 2 }
-    if (slot === 7) return { ...common, name: this.settings.slotHit2Name, stimulusCount: 1, additionalHit: true }
-    const missNames = [
-      this.settings.slotMiss1Name,
-      this.settings.slotMiss2Name,
-      this.settings.slotMiss3Name,
-      this.settings.slotMiss4Name,
-      this.settings.slotMiss5Name,
-      this.settings.slotMiss6Name,
-      this.settings.slotMiss7Name,
-      this.settings.slotMiss8Name
-    ]
-    const missIndex = slot < 7 ? slot - 3 : slot - 4
-    return { ...common, name: missNames[missIndex], stimulusCount: 0 }
+    const totalWeight = activeSlots.reduce((total, activeSlot) => {
+      const activeDefinition = SLOT_DEFINITIONS.find(item => item.slot === activeSlot)
+      return total + group[activeDefinition.weightField]
+    }, 0)
+    return {
+      slot,
+      position: activeIndex < 0 ? null : activeIndex + 1,
+      totalSlots: activeSlots.length,
+      totalWeight,
+      weight: group[definition.weightField],
+      active: activeIndex >= 0,
+      name: group[definition.nameField],
+      stimulusCount: definition.stimulusCount,
+      additionalHit: definition.additionalHit === true,
+      firstDelaySeconds: definition.firstDelayField ? group[definition.firstDelayField] : 0,
+      secondDelaySeconds: definition.secondDelayField ? group[definition.secondDelayField] : 0
+    }
   },
 
   lotterySlotLabel(lottery) {
-    if (lottery.active === false) return `追加枠${lottery.slot}（抽選OFF）`
+    if (lottery.active === false) return `枠${lottery.slot}（抽選OFF）`
     const position = lottery.position || lottery.slot
-    const totalSlots = lottery.totalSlots || this.activeLotterySlots().length
-    return `${position}/${totalSlots}`
+    return `${position}/${lottery.totalSlots}・重み${lottery.weight}/${lottery.totalWeight}`
   },
 
-  wordPartyEffect(lottery) {
-    const effects = [
-      null,
-      { name: this.settings.slotHitName, id: this.settings.wordPartyHitId, durationSeconds: this.settings.wordPartyHitDurationSeconds },
-      { name: this.settings.slotBonusName, id: this.settings.wordPartyBonusId, durationSeconds: this.settings.wordPartyBonusDurationSeconds },
-      { name: this.settings.slotMiss1Name, id: this.settings.wordPartyMiss1Id, durationSeconds: this.settings.wordPartyMiss1DurationSeconds },
-      { name: this.settings.slotMiss2Name, id: this.settings.wordPartyMiss2Id, durationSeconds: this.settings.wordPartyMiss2DurationSeconds },
-      { name: this.settings.slotMiss3Name, id: this.settings.wordPartyMiss3Id, durationSeconds: this.settings.wordPartyMiss3DurationSeconds },
-      { name: this.settings.slotMiss4Name, id: this.settings.wordPartyMiss4Id, durationSeconds: this.settings.wordPartyMiss4DurationSeconds },
-      { name: this.settings.slotHit2Name, id: this.settings.wordPartyHit2Id, durationSeconds: this.settings.wordPartyHit2DurationSeconds },
-      { name: this.settings.slotMiss5Name, id: this.settings.wordPartyMiss5Id, durationSeconds: this.settings.wordPartyMiss5DurationSeconds },
-      { name: this.settings.slotMiss6Name, id: this.settings.wordPartyMiss6Id, durationSeconds: this.settings.wordPartyMiss6DurationSeconds },
-      { name: this.settings.slotMiss7Name, id: this.settings.wordPartyMiss7Id, durationSeconds: this.settings.wordPartyMiss7DurationSeconds },
-      { name: this.settings.slotMiss8Name, id: this.settings.wordPartyMiss8Id, durationSeconds: this.settings.wordPartyMiss8DurationSeconds }
-    ]
-    return effects[lottery.slot]
+  wordPartyEffect(lottery, group) {
+    const definition = SLOT_DEFINITIONS.find(item => item.slot === lottery.slot)
+    if (!definition) return null
+    return { name: group[definition.nameField], id: group[definition.idField], durationSeconds: group[definition.durationField] }
   },
 
-  async triggerWordParty(job, lottery) {
+  async triggerWordParty(job, lottery, group) {
     if (!this.settings.wordPartyEnabled) return true
-    const effect = this.wordPartyEffect(lottery)
+    const effect = this.wordPartyEffect(lottery, group)
     const prefix = `[WORDPARTY] #${job.number}`
     if (!effect || !effect.id) {
       this.record('WARN', `${prefix} ${this.lotterySlotLabel(lottery)}の演出IDがありません。`)
@@ -508,9 +540,9 @@ const plugin = {
     return false
   },
 
-  async reserveWordPartyDuration(job, lottery, generation, startedAt, allowManual = false) {
+  async reserveWordPartyDuration(job, lottery, group, generation, startedAt, allowManual = false) {
     if (!this.settings.wordPartyEnabled) return true
-    const effect = this.wordPartyEffect(lottery)
+    const effect = this.wordPartyEffect(lottery, group)
     if (!effect || effect.durationSeconds <= 0) return true
     this.record('INFO', `[WAIT] #${job.number} ${effect.name}の演出時間 ${effect.durationSeconds}s`)
     const remaining = effect.durationSeconds * 1000 - (Date.now() - startedAt)
@@ -538,24 +570,28 @@ const plugin = {
     return true
   },
 
-  async executeLottery(job, lottery, generation, allowManual = false) {
-    this.record('INFO', `[LOTTERY] #${job.number} ${this.lotterySlotLabel(lottery)} ${lottery.name}${lottery.stimulusCount ? `（電撃${lottery.stimulusCount}回）` : '（電撃なし）'}`)
+  async executeLottery(job, lottery, group, generation, allowManual = false) {
+    this.record('INFO', `[LOTTERY] #${job.number} ${group.groupName} / ${this.lotterySlotLabel(lottery)} ${lottery.name}${lottery.stimulusCount ? `（電撃${lottery.stimulusCount}回）` : '（電撃なし）'}`)
     const wordPartyStartedAt = Date.now()
-    const wordPartyPromise = this.triggerWordParty(job, lottery)
-    const wordPartyDurationPromise = this.reserveWordPartyDuration(job, lottery, generation, wordPartyStartedAt, allowManual)
+    const wordPartyPromise = this.triggerWordParty(job, lottery, group)
+    const wordPartyDurationPromise = this.reserveWordPartyDuration(job, lottery, group, generation, wordPartyStartedAt, allowManual)
     if (!lottery.stimulusCount) {
       await Promise.all([wordPartyPromise, wordPartyDurationPromise])
       return
     }
-    const output = this.selectOutput()
-    this.record('INFO', `[OUTPUT] #${job.number} ${this.settings.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
+    const output = this.selectOutput(group)
+    this.record('INFO', `[OUTPUT] #${job.number} ${group.outputMode === 'fixed' ? '固定' : 'ランダム'} ${output}`)
+    const definition = SLOT_DEFINITIONS.find(item => item.slot === lottery.slot)
     const firstDelaySeconds = this.settings.wordPartyEnabled
-      ? (lottery.additionalHit ? this.settings.hit2DelaySeconds : lottery.slot === 1 ? this.settings.hitDelaySeconds : this.settings.bonusFirstDelaySeconds)
+      ? (Number.isFinite(lottery.firstDelaySeconds) ? lottery.firstDelaySeconds : definition && definition.firstDelayField ? group[definition.firstDelayField] : 0)
       : 0
+    const secondDelaySeconds = Number.isFinite(lottery.secondDelaySeconds)
+      ? lottery.secondDelaySeconds
+      : definition && definition.secondDelayField ? group[definition.secondDelayField] : 0
     await Promise.all([
       wordPartyPromise,
       wordPartyDurationPromise,
-      this.runLotteryStimuli(job, lottery.stimulusCount, output, generation, firstDelaySeconds, this.settings.bonusSecondDelaySeconds, allowManual)
+      this.runLotteryStimuli(job, lottery.stimulusCount, output, generation, firstDelaySeconds, secondDelaySeconds, allowManual)
     ])
   },
 
@@ -570,10 +606,15 @@ const plugin = {
         if (wait > 0 && !(await this.waitWhileRunning(wait, generation))) return
         if (!this.monitoring || this.generation !== generation) return
         this.queue.shift()
-        const lottery = job.manualSlot ? this.lotteryForSlot(job.manualSlot) : this.drawLottery()
+        const group = this.settings.amountGroups[job.groupIndex]
+        if (!group || !group.enabled) {
+          this.record('ERROR', `[QUEUE] #${job.number} 対象の金額枠が無効なため破棄しました。`)
+          continue
+        }
+        const lottery = job.manualSlot ? this.lotteryForSlot(job.manualSlot, group) : this.drawLottery(group)
         if (job.manualSlot) this.record('INFO', `[MANUAL] #${job.number} ${lottery.name} 手動実行`)
-        else this.record('INFO', `[MATCH] #${job.number} ${job.event.price}円`)
-        await this.executeLottery(job, lottery, generation)
+        else this.record('INFO', `[MATCH] #${job.number} ${group.groupName} / ${job.event.price}円`)
+        await this.executeLottery(job, lottery, group, generation)
       }
     } finally {
       this.processing = false
@@ -745,15 +786,21 @@ const plugin = {
     }
   },
 
-  async runSlotManual(value) {
+  async runSlotManual(groupValue, value) {
+    const groupIndex = groupValue == null ? 0 : Number(groupValue)
+    if (!Number.isInteger(groupIndex) || groupIndex < 0 || groupIndex >= this.settings.amountGroups.length) {
+      throw new Error('手動実行の金額枠が不正です。')
+    }
+    const group = this.settings.amountGroups[groupIndex]
+    if (!group.enabled) throw new Error('無効な金額枠は手動実行できません。')
     const slot = Number(value)
     if (!Number.isInteger(slot) || slot < 1 || slot > 11) throw new Error('手動実行の抽選枠が不正です。')
     if (this.starting) throw new Error('監視の開始処理中は手動実行できません。')
-    const lottery = this.lotteryForSlot(slot)
+    const lottery = this.lotteryForSlot(slot, group)
     if (this.monitoring) {
       this.jobNumber += 1
-      this.queue.push({ number: this.jobNumber, manualSlot: slot, readyAt: Date.now() })
-      this.record('INFO', `[QUEUE] #${this.jobNumber} ${lottery.name} 手動実行予約`)
+      this.queue.push({ number: this.jobNumber, groupIndex, manualSlot: slot, readyAt: Date.now() })
+      this.record('INFO', `[QUEUE] #${this.jobNumber} ${group.groupName} / ${lottery.name} 手動実行予約`)
       this.processQueue()
       return
     }
@@ -762,8 +809,8 @@ const plugin = {
     const generation = this.generation
     try {
       if (this.settings.pavlokEnabled) await this.refreshRuntimeToken()
-      this.record('INFO', `[MANUAL] #MANUAL ${lottery.name} 手動実行`)
-      await this.executeLottery({ number: 'MANUAL', manualSlot: slot }, lottery, generation, true)
+      this.record('INFO', `[MANUAL] #MANUAL ${group.groupName} / ${lottery.name} 手動実行`)
+      await this.executeLottery({ number: 'MANUAL', groupIndex, manualSlot: slot }, lottery, group, generation, true)
     } finally {
       this.manualRunning = false
     }
@@ -815,7 +862,7 @@ const plugin = {
         return { code: 200, response: this.publicState() }
       }
       if (req.method === 'POST' && body.action === 'manual-slot') {
-        await this.runSlotManual(body.slot)
+        await this.runSlotManual(body.groupIndex, body.slot)
         return { code: 200, response: this.publicState() }
       }
       return { code: 405, response: { error: '対応していない操作です。' } }

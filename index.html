@@ -10,8 +10,8 @@
   <main class="container">
     <header>
       <div>
-        <h1>Pavlok Super Chat Controller <small>v1.5.0</small></h1>
-        <p>対象金額のYouTube Super Chatを6～11枠で抽選し、Pavlokの電撃とWordParty演出を実行します。</p>
+        <h1>Pavlok Super Chat Controller <small>v1.6.0</small></h1>
+        <p>最大4つの対象金額ごとに抽選設定を持ち、Pavlokの電撃とWordParty演出を実行します。</p>
       </div>
       <span id="monitor-badge" class="badge stopped">停止中</span>
     </header>
@@ -24,9 +24,6 @@
         </label>
         <label class="check"><input id="pavlok-enabled" class="setting-input" type="checkbox"> 実機へ電撃を送信</label>
         <label class="check"><input id="ignore-initial" class="setting-input" type="checkbox"> 開始前のSuper Chatを既読扱いにする</label>
-        <label>検出後の待機秒数
-          <input id="delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-        </label>
       </div>
       <p id="token-state" class="hint"></p>
       <label class="check danger"><input id="clear-token" class="setting-input" type="checkbox"> 保存済みトークンを削除</label>
@@ -35,199 +32,18 @@
     <section class="panel">
       <h2>WordParty連携</h2>
       <label class="check"><input id="wordparty-enabled" class="setting-input" type="checkbox"> 抽選結果に応じてWordParty演出を実行</label>
-      <p id="wordparty-slot-summary" class="hint">演出IDと演出時間は、下の「びりびり設定」にある6つの使用枠ごとに設定します。</p>
+      <p class="hint">有効な金額枠ごとに、使用中の抽選枠へ別々の8文字の演出IDを設定します。</p>
       <p class="warning">WordParty連携はPavlokの実機送信設定とは独立しています。連携ONでは、PavlokがDRY-RUNでもWordParty演出を実行します。</p>
     </section>
 
     <section class="panel">
-      <h2>びりびり設定</h2>
-      <p id="lottery-summary" class="hint">対象金額は1つだけです。完全一致したSuper Chatごとに、使用中の6枠を重み1で均等に抽選します。</p>
-      <div class="grid lottery-settings">
-        <label>びりびり対象金額（円）
-          <input id="target-amount" class="setting-input" type="number" min="1" step="1">
-        </label>
-        <label>出力方法
-          <select id="output-mode" class="setting-input">
-            <option value="fixed">固定</option>
-            <option value="random">ランダム</option>
-          </select>
-        </label>
-        <label>固定出力（1～100）
-          <input id="fixed-output" class="setting-input" type="number" min="1" max="100" step="1">
-        </label>
-        <label>ランダム下限（1～100）
-          <input id="random-min" class="setting-input" type="number" min="1" max="100" step="1">
-        </label>
-        <label>ランダム上限（1～100）
-          <input id="random-max" class="setting-input" type="number" min="1" max="100" step="1">
-        </label>
-      </div>
-      <div class="slot-cards" aria-label="抽選枠ごとの設定">
-        <article class="slot-card hit">
-          <h3><span id="slot-hit-title">あたり</span> <small class="slot-odds" data-position="1" data-stimulus="電撃1回">1枠目・1/6・電撃1回</small></h3>
-          <label>枠名
-            <input id="slot-hit-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-hit-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-hit-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <label>WordParty呼び出し後から電撃まで（秒）
-            <input id="hit-delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="1">手動実行</button>
-        </article>
-        <article class="slot-card bonus">
-          <h3><span id="slot-bonus-title">確変</span> <small class="slot-odds" data-position="2" data-stimulus="電撃2回">2枠目・1/6・電撃2回</small></h3>
-          <label>枠名
-            <input id="slot-bonus-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-bonus-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-bonus-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <label>WordParty呼び出し後から1撃目まで（秒）
-            <input id="bonus-first-delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <label>1撃目から2撃目まで（秒）
-            <input id="bonus-second-delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="2">手動実行</button>
-        </article>
-        <article class="slot-card">
-          <h3><span id="slot-miss-1-title">はずれ1</span> <small class="slot-odds" data-position="3" data-stimulus="電撃なし">3枠目・1/6・電撃なし</small></h3>
-          <label>枠名
-            <input id="slot-miss-1-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-1-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-1-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="3">手動実行</button>
-        </article>
-        <article class="slot-card">
-          <h3><span id="slot-miss-2-title">はずれ2</span> <small class="slot-odds" data-position="4" data-stimulus="電撃なし">4枠目・1/6・電撃なし</small></h3>
-          <label>枠名
-            <input id="slot-miss-2-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-2-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-2-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="4">手動実行</button>
-        </article>
-        <article class="slot-card">
-          <h3><span id="slot-miss-3-title">はずれ3</span> <small class="slot-odds" data-position="5" data-stimulus="電撃なし">5枠目・1/6・電撃なし</small></h3>
-          <label>枠名
-            <input id="slot-miss-3-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-3-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-3-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="5">手動実行</button>
-        </article>
-        <article class="slot-card">
-          <h3><span id="slot-miss-4-title">はずれ4</span> <small class="slot-odds" data-position="6" data-stimulus="電撃なし">6枠目・1/6・電撃なし</small></h3>
-          <label>枠名
-            <input id="slot-miss-4-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-4-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-4-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="6">手動実行</button>
-        </article>
-        <article id="slot-hit-2-card" class="slot-card hit extra-slot inactive">
-          <h3><span id="slot-hit-2-title">追加あたり</span> <small class="slot-odds" data-position="7" data-stimulus="電撃1回">追加枠・未使用・電撃1回</small></h3>
-          <label class="check"><input id="slot-hit-2-enabled" class="setting-input" type="checkbox"> この枠を抽選に使用</label>
-          <label>枠名
-            <input id="slot-hit-2-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-hit-2-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-hit-2-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <label>WordParty呼び出し後から電撃まで（秒）
-            <input id="hit-2-delay-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="7">手動実行</button>
-        </article>
-        <article id="slot-miss-5-card" class="slot-card extra-slot inactive">
-          <h3><span id="slot-miss-5-title">はずれ5</span> <small class="slot-odds" data-position="8" data-stimulus="電撃なし">追加枠・未使用・電撃なし</small></h3>
-          <label class="check"><input id="slot-miss-5-enabled" class="setting-input" type="checkbox"> この枠を抽選に使用</label>
-          <label>枠名
-            <input id="slot-miss-5-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-5-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-5-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="8">手動実行</button>
-        </article>
-        <article id="slot-miss-6-card" class="slot-card extra-slot inactive">
-          <h3><span id="slot-miss-6-title">はずれ6</span> <small class="slot-odds" data-position="9" data-stimulus="電撃なし">追加枠・未使用・電撃なし</small></h3>
-          <label class="check"><input id="slot-miss-6-enabled" class="setting-input" type="checkbox"> この枠を抽選に使用</label>
-          <label>枠名
-            <input id="slot-miss-6-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-6-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-6-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="9">手動実行</button>
-        </article>
-        <article id="slot-miss-7-card" class="slot-card extra-slot inactive">
-          <h3><span id="slot-miss-7-title">はずれ7</span> <small class="slot-odds" data-position="10" data-stimulus="電撃なし">追加枠・未使用・電撃なし</small></h3>
-          <label class="check"><input id="slot-miss-7-enabled" class="setting-input" type="checkbox"> この枠を抽選に使用</label>
-          <label>枠名
-            <input id="slot-miss-7-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-7-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-7-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="10">手動実行</button>
-        </article>
-        <article id="slot-miss-8-card" class="slot-card extra-slot inactive">
-          <h3><span id="slot-miss-8-title">はずれ8</span> <small class="slot-odds" data-position="11" data-stimulus="電撃なし">追加枠・未使用・電撃なし</small></h3>
-          <label class="check"><input id="slot-miss-8-enabled" class="setting-input" type="checkbox"> この枠を抽選に使用</label>
-          <label>枠名
-            <input id="slot-miss-8-name" class="setting-input" type="text" maxlength="40" autocomplete="off">
-          </label>
-          <label>WordParty演出ID
-            <input id="wordparty-miss-8-id" class="setting-input" type="text" minlength="8" maxlength="8" autocomplete="off" placeholder="8文字のID">
-          </label>
-          <label>演出時間（秒）
-            <input id="wordparty-miss-8-duration-seconds" class="setting-input" type="number" min="0" max="86400" step="0.1">
-          </label>
-          <button class="slot-manual-button" type="button" data-slot="11">手動実行</button>
-        </article>
-      </div>
-      <p class="hint">各演出時間はWordParty呼び出し開始から数え、その時間が終わるまで次の抽選演出を開始しません。0秒なら待機しません。WordParty連携OFFでは呼び出し後から1撃目までの待機は行いません。確変の1撃目から2撃目までの待機は常に適用します。</p>
-      <p class="hint">各枠の「手動実行」はWordParty演出、待機時間、電撃回数を含む枠全体の動作を実行します。監視中はFIFOの末尾へ予約し、停止中はカードの未保存設定を保存してから実行します。実機送信OFFでは電撃はDRY-RUNになります。</p>
-      <p class="warning">実機送信ONで「あたり」「追加あたり」または「確変」の手動実行を押すと、設定した出力でPavlokへ実際に電撃を送信します。</p>
-      <p class="hint">電撃送信に失敗した場合、同じ抽選結果の残りの電撃は送信しません。</p>
+      <h2>金額別びりびり設定</h2>
+      <p class="hint">金額枠1は常に有効です。追加の金額枠2～4は個別に有効化でき、無効時は設定内容を折りたたみます。有効な金額は重複できません。</p>
+      <p class="hint">はずれ1は常に抽選対象です。それ以外の枠は個別にON/OFFでき、使用中の各枠へ1～10の重みを設定します。</p>
+      <div id="amount-groups" class="amount-groups" aria-label="金額枠ごとの設定"></div>
+      <p class="hint">演出時間はWordParty呼び出し開始から数え、その時間と同じ抽選の電撃処理が終わるまで次の予約を開始しません。</p>
+      <p class="hint">各枠の「手動実行」は、選択した金額枠のWordParty演出・待機時間・電撃回数・出力設定を一式で実行します。監視中はFIFO末尾へ予約します。</p>
+      <p class="warning">実機送信ONで電撃ありの枠を手動実行すると、その金額枠の出力設定でPavlokへ実際に電撃を送信します。</p>
     </section>
 
     <section class="panel">

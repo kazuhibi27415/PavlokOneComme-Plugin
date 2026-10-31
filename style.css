@@ -12,7 +12,8 @@ h1 { margin: 0 0 6px; font-size: 26px; }
 h1 small { color: #637083; font-size: 14px; }
 h2 { margin: 0 0 12px; font-size: 18px; }
 h3 { margin: 0; font-size: 16px; }
-h3 small { color: #647184; font-size: 12px; font-weight: 500; }
+h4 { margin: 0; font-size: 15px; }
+h3 small, h4 small { color: #647184; font-size: 12px; font-weight: 500; }
 p { margin: 6px 0; }
 .panel { margin-top: 14px; padding: 18px; border: 1px solid #d5dbe3; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px #18243b0d; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
@@ -23,14 +24,23 @@ input, select, button { font: inherit; }
 input[type="text"], input[type="password"], input[type="number"], select { width: 100%; padding: 8px 9px; border: 1px solid #aeb8c5; border-radius: 6px; background: #fff; color: #17202b; }
 input:disabled, select:disabled { opacity: .65; }
 .lottery-settings { margin-top: 12px; }
+.amount-groups { display: grid; gap: 16px; margin: 16px 0; }
+.amount-group { overflow: hidden; border: 1px solid #c8d0db; border-radius: 10px; background: #f8fafc; }
+.amount-group.inactive { border-style: dashed; opacity: .78; }
+.amount-group-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 14px 16px; background: #eef3f8; }
+.amount-group-header p { margin-bottom: 0; }
+.amount-group-body { padding: 0 16px 16px; }
+.group-enabled-check { flex: 0 0 auto; }
+.always-on { display: inline-block; width: fit-content; color: #456078; font-size: .82rem; font-weight: 700; }
+.group-required { padding: 4px 9px; border-radius: 999px; background: #dfeaf3; }
 .slot-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 12px; }
 .slot-card { display: flex; flex-direction: column; gap: 11px; padding: 14px; border: 1px solid #d5dbe3; border-radius: 9px; background: #f8f9fb; }
 .slot-card.hit { border-color: #e1a82b; background: #fff9e9; }
 .slot-card.hit h3 { color: #744d00; }
 .slot-card.bonus { border-color: #b254c4; background: #fcf3fe; }
 .slot-card.bonus h3 { color: #6d237b; }
-.slot-card.extra-slot.inactive { border-style: dashed; opacity: .7; }
-.slot-card.extra-slot.inactive::before { content: '抽選では未使用'; color: #5f6b7a; font-size: .82rem; font-weight: 700; }
+.slot-card.inactive { border-style: dashed; opacity: .7; }
+.slot-card.inactive::before { content: '抽選では未使用'; color: #5f6b7a; font-size: .82rem; font-weight: 700; }
 .slot-card .slot-manual-button { margin-top: auto; }
 .actions { display: flex; gap: 9px; align-items: center; margin-top: 15px; }
 .manual-row { display: flex; gap: 12px; align-items: flex-end; }
@@ -55,4 +65,4 @@ button:disabled { cursor: default; opacity: .5; }
 footer { margin: 16px 0 30px; color: #667386; font-size: 12px; }
 footer a { color: #276aa3; }
 @media (max-width: 900px) { .slot-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .grid, .slot-cards { grid-template-columns: 1fr; } .wide { grid-column: auto; } header { flex-direction: column; } .manual-row { align-items: stretch; flex-direction: column; } }
+@media (max-width: 700px) { .grid, .slot-cards { grid-template-columns: 1fr; } .wide { grid-column: auto; } header, .amount-group-header { align-items: flex-start; flex-direction: column; } .manual-row { align-items: stretch; flex-direction: column; } }
